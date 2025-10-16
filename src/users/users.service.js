@@ -21,6 +21,17 @@ export const findAll = async () => {
   }
 };
 
+export const findById = async (id) => {
+  const [rows] = await db.pool.execute("SELECT * FROM users WHERE id = ?", [
+    id,
+  ]);
+  const user = rows[0];
+  if (user) {
+    delete user.password;
+  }
+  return user;
+};
+
 export const register = async (userData) => {
   const { username, email, password, gender, ...otherData } = userData;
 
@@ -45,10 +56,16 @@ export const register = async (userData) => {
 
   const [result] = await db.pool.execute(sql, values);
 
-  // Don't return password
-  delete newUser.password;
+  // Fetch the created user
+  const [rows] = await db.pool.execute("SELECT * FROM users WHERE id = ?", [
+    result.insertId,
+  ]);
+  const user = rows[0];
 
-  return { id: result.insertId, ...newUser };
+  // Don't return password
+  delete user.password;
+
+  return user;
 };
 
-export default { findAll, register };
+export default { findAll, register, findById };

@@ -14,6 +14,25 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
+export const getMe = async (req, res, next) => {
+  try {
+    // req.user is populated by passport
+    const user = await usersService.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    return res.json({
+      success: true,
+      data: user,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export const register = async (req, res, next) => {
   try {
     const user = await usersService.register(req.body);
@@ -26,9 +45,11 @@ export const register = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
-      data: user,
-      token,
+      message: "User logged in successfully",
+      data: {
+        user,
+        token,
+      },
     });
   } catch (error) {
     next(error);

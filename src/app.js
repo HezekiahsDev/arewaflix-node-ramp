@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import passport from "passport";
 import indexRouter from "./routes/index.js";
 import authRouter from "./auth/auth.router.js";
@@ -8,6 +9,8 @@ import passportJwt from "./auth/strategies/jwt.strategy.js";
 const app = express();
 
 // Middleware
+// Enable CORS for all origins (temporary for now)
+app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
 passport.use(passportJwt);

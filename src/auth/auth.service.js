@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import db from "../models/db.js";
 import config from "../config/config.js";
+import HttpError from "../utils/httpError.js";
 
 class AuthService {
   async login(userData) {
@@ -13,9 +14,7 @@ class AuthService {
       [identifier, identifier]
     );
     if (!Array.isArray(rows) || rows.length === 0) {
-      const err = new Error("Invalid credentials.");
-      err.statusCode = 401;
-      throw err;
+      throw new HttpError("Invalid credentials.", 401);
     }
 
     const user = rows[0];
@@ -23,9 +22,7 @@ class AuthService {
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      const err = new Error("Invalid credentials.");
-      err.statusCode = 401;
-      throw err;
+      throw new HttpError("Invalid credentials.", 401);
     }
 
     // Generate token (include username in payload)
