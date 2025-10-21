@@ -3,11 +3,11 @@ import "dotenv/config";
 
 // Create a connection pool using environment variables
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || "arewaflix.com",
+  host: process.env.DB_HOST || "localhost",
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  user: process.env.DB_USER || "arewaflix_mobile-App",
-  password: process.env.DB_PASSWORD || "B2ZiZ1_HJi8!8nXo",
-  database: process.env.DB_DATABASE || "arewaflix_mobile-App",
+  user: process.env.DB_USER || "dev",
+  password: process.env.DB_PASSWORD || "dev",
+  database: process.env.DB_DATABASE || "arewaflix",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

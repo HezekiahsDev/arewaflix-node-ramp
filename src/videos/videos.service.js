@@ -203,8 +203,8 @@ const insertVideoRecord = async (payload = {}, { isShort = false } = {}) => {
     throw new HttpError("title is required", 400);
   }
 
+  // Let the database generate `video_id` if none is provided by the client.
   let videoId = sanitizeString(payload.video_id).trim();
-  if (!videoId) videoId = generateVideoId();
 
   let shortId = sanitizeString(payload.short_id).trim();
   if (!shortId) shortId = generateShortId();
@@ -293,6 +293,7 @@ const insertVideoRecord = async (payload = {}, { isShort = false } = {}) => {
       const result = await db.query(insertSql, values);
       const insertedId = result.insertId;
       if (!insertedId) return null;
+      // Re-query to obtain DB-generated fields (including video_id)
       const rows = await db.query("SELECT * FROM videos WHERE id = ?", [
         insertedId,
       ]);

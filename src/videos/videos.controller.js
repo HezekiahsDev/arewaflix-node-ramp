@@ -148,7 +148,8 @@ const buildCreatePayload = (req, res, { isShort, userId }) => {
     return null;
   }
 
-  if (!Number.isInteger(userId) || userId <= 0) {
+  // Allow anonymous uploads for testing: userId may be 0 (anonymous)
+  if (!Number.isInteger(userId) || userId < 0) {
     res.status(401).json({ error: "Authentication required." });
     return null;
   }
@@ -282,9 +283,11 @@ export const getShortsVideos = async (req, res, next) => {
 
 export const createVideo = async (req, res, next) => {
   try {
-    const userId = getAuthenticatedUserId(req);
+    let userId = getAuthenticatedUserId(req);
+    // If not authenticated, allow client to provide user_id (or default to 0 for anonymous)
     if (!userId) {
-      return res.status(401).json({ error: "Authentication required." });
+      const bodyUserId = parseOptionalUserId(req?.body?.user_id);
+      userId = bodyUserId || 0;
     }
 
     const payload = buildCreatePayload(req, res, { isShort: false, userId });
