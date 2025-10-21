@@ -7,7 +7,7 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   user: process.env.DB_USER || "dev",
   password: process.env.DB_PASSWORD || "dev",
-  database: process.env.DB_DATABASE || "arewaflix",
+  database: process.env.DB_DATABASE || "arewaflix_web",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
