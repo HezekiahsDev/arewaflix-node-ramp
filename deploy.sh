@@ -1,25 +1,30 @@
 #!/bin/bash
 # ====== Arewaflix API Deploy Script ======
+# Place this file in your app root (no cd required)
 # Usage: ./deploy.sh
+
+set -euo pipefail
 
 APP_NAME="arewaflix-api"
 
-echo "🚀 Starting deployment for $APP_NAME..."
+echo "🚀 Deploy: $APP_NAME"
 
-echo "🔧 Pulling latest changes (if using git)..."
-git pull origin main || echo "Skipping git pull (not a git repo)"
+echo "📦 Installing dependencies (production)..."
+npm install --production || { echo "npm install failed"; exit 1; }
 
-echo "📦 Installing dependencies..."
-npm install --production
+echo "🛑 Stopping PM2 process (if running)..."
+pm2 stop "$APP_NAME" 2>/dev/null || echo "No running process to stop."
 
-echo "🛑 Stopping existing PM2 process..."
-pm2 stop $APP_NAME || echo "No process found to stop"
+echo "🗑️ Deleting PM2 process (if exists)..."
+pm2 delete "$APP_NAME" 2>/dev/null || echo "No process to delete."
 
 echo "♻️ Starting app with PM2 (npm start)..."
-pm2 start npm --name $APP_NAME -- start
+pm2 start npm --name "$APP_NAME" -- start
 
 echo "💾 Saving PM2 process list..."
 pm2 save
 
-echo "✅ Deployment complete!"
-pm2 status $APP_NAME
+echo "🔎 Current status:"
+pm2 status "$APP_NAME" || pm2 list
+
+echo "✅ Deployment completed successfully."
