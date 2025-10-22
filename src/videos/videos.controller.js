@@ -378,7 +378,7 @@ export const likeVideo = async (req, res, next) => {
   }
 };
 
-export const getVideoLikes = async (req, res, next) => {
+export const getVideoReactions = async (req, res, next) => {
   try {
     const videoId = parseVideoId(req?.params?.id);
     if (!videoId) {
@@ -387,8 +387,8 @@ export const getVideoLikes = async (req, res, next) => {
       });
     }
 
-    const likeCount = await getLikeCount(videoId);
-    res.status(200).json({ data: { videoId, likes: likeCount } });
+    const counts = await getLikeCount(videoId);
+    res.status(200).json({ data: { videoId, ...counts } });
   } catch (err) {
     next(err);
   }
@@ -402,5 +402,5 @@ export default {
   createShort,
   createView,
   likeVideo,
-  getVideoLikes,
+  getVideoReactions,
 };

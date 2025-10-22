@@ -8,7 +8,7 @@ import {
   createShort,
   createView,
   likeVideo,
-  getVideoLikes,
+  getVideoReactions,
 } from "./videos.controller.js";
 import commentsRouter from "./comments.router.js";
 
@@ -37,8 +37,8 @@ router.post("/views", createView);
 // POST /api/v1/videos/like
 router.post("/like", requireAuth, likeVideo);
 
-// GET /api/v1/videos/:id/likes
-router.get("/:id/likes", getVideoLikes);
+// GET /api/v1/videos/:id/reactions
+router.get("/:id/reactions", getVideoReactions);
 
 // Mount comments router
 router.use("/:id/comments", commentsRouter);

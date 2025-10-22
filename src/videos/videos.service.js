@@ -476,12 +476,21 @@ export const getLikeCount = async (videoId) => {
     throw new HttpError("'videoId' must be a positive integer.", 400);
   }
 
-  const rows = await db.query(
-    "SELECT COUNT(*) as count FROM likes_dislikes WHERE video_id = ? AND type = 1",
-    [parsedVideoId]
-  );
+  const [likesResult, dislikesResult] = await Promise.all([
+    db.query(
+      "SELECT COUNT(*) as count FROM likes_dislikes WHERE video_id = ? AND type = 1",
+      [parsedVideoId]
+    ),
+    db.query(
+      "SELECT COUNT(*) as count FROM likes_dislikes WHERE video_id = ? AND type = 2",
+      [parsedVideoId]
+    ),
+  ]);
 
-  return Number(rows?.[0]?.count || 0);
+  return {
+    likes: Number(likesResult?.[0]?.count || 0),
+    dislikes: Number(dislikesResult?.[0]?.count || 0),
+  };
 };
 
 export default {
