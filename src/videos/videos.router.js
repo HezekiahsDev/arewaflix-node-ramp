@@ -34,8 +34,8 @@ router.get("/shorts", getShortsVideos);
 // POST /api/v1/videos/views
 router.post("/views", createView);
 
-// POST /api/v1/videos/like
-router.post("/like", requireAuth, likeVideo);
+// POST /api/v1/videos/reaction
+router.post("/reaction", requireAuth, likeVideo);
 
 // GET /api/v1/videos/:id/reactions
 router.get("/:id/reactions", getVideoReactions);
