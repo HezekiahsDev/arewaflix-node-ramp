@@ -11,6 +11,7 @@ import {
   getVideoReactions,
   getUserReaction,
   searchVideosController,
+  getRandomVideosController,
 } from "./videos.controller.js";
 import commentsRouter from "./comments.router.js";
 
@@ -29,6 +30,9 @@ router.get("/filter", getFilteredVideos);
 
 // GET /api/v1/videos/search?q=query&limit=20&page=1
 router.get("/search", searchVideosController);
+
+// GET /api/v1/videos/random?count=5
+router.get("/random", getRandomVideosController);
 
 // POST /api/v1/videos/shorts
 router.post("/shorts", requireAuth, createShort);

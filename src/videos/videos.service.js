@@ -628,6 +628,57 @@ export const searchVideos = async ({
   }
 };
 
+export const getRandomVideos = async ({
+  count = 5,
+  approved,
+  privacy,
+} = {}) => {
+  const safeCount = Math.max(5, Math.min(Number(count) || 5, 10));
+
+  try {
+    // Build WHERE clause with optional filters
+    const whereClauses = [];
+    const whereValues = [];
+
+    if (approved !== undefined) {
+      whereClauses.push("approved = ?");
+      whereValues.push(Number(approved));
+    }
+    if (privacy !== undefined) {
+      whereClauses.push("privacy = ?");
+      whereValues.push(Number(privacy));
+    }
+
+    const whereSql = whereClauses.length
+      ? `WHERE ${whereClauses.join(" AND ")}`
+      : "";
+
+    // Fetch random videos
+    const rows = await db.query(
+      `SELECT *
+       FROM videos
+       ${whereSql}
+       ORDER BY RAND()
+       LIMIT ${safeCount}`,
+      whereValues
+    );
+
+    return {
+      data: rows,
+      count: rows.length,
+    };
+  } catch (err) {
+    console.warn(
+      "DB query failed in videos.service.getRandomVideos — returning empty:",
+      err.message
+    );
+    return {
+      data: [],
+      count: 0,
+    };
+  }
+};
+
 export default {
   findPaginated,
   createVideo,
@@ -637,4 +688,5 @@ export default {
   getLikeCount,
   getUserReaction,
   searchVideos,
+  getRandomVideos,
 };

@@ -7,6 +7,7 @@ import {
   getLikeCount,
   getUserReaction as getUserReactionFromService,
   searchVideos,
+  getRandomVideos,
 } from "./videos.service.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
@@ -458,6 +459,38 @@ export const searchVideosController = async (req, res, next) => {
   }
 };
 
+export const getRandomVideosController = async (req, res, next) => {
+  try {
+    const { count, approved, privacy } = req.query;
+
+    // Validate count if provided
+    if (count !== undefined && count !== "") {
+      const c = Number(count);
+      if (Number.isNaN(c) || c < 5 || c > 10) {
+        return res.status(400).json({
+          error: "Invalid 'count' query param. Allowed values: 5-10.",
+        });
+      }
+    }
+
+    const filters = {};
+    if (count !== undefined) filters.count = count;
+    if (approved !== undefined && approved !== "") {
+      const a = Number(approved);
+      if (!Number.isNaN(a)) filters.approved = a;
+    }
+    if (privacy !== undefined && privacy !== "") {
+      const p = Number(privacy);
+      if (!Number.isNaN(p)) filters.privacy = p;
+    }
+
+    const result = await getRandomVideos(filters);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default {
   getAllVideos,
   getFilteredVideos,
@@ -469,4 +502,5 @@ export default {
   getVideoReactions,
   getUserReaction,
   searchVideosController,
+  getRandomVideosController,
 };
