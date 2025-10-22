@@ -477,7 +477,10 @@ export const toggleLike = async ({ userId, videoId, action }) => {
         "UPDATE likes_dislikes SET type = ?, time = ? WHERE user_id = ? AND video_id = ?",
         [type, timestamp, parsedUserId, parsedVideoId]
       );
-      return { action, message: `Video ${action} (race-handled) updated successfully.` };
+      return {
+        action,
+        message: `Video ${action} (race-handled) updated successfully.`,
+      };
     }
     throw err;
   }
