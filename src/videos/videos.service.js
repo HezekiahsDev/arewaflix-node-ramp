@@ -470,10 +470,25 @@ export const toggleLike = async ({ userId, videoId, action }) => {
   return { action, message: `Video ${action}d successfully.` };
 };
 
+export const getLikeCount = async (videoId) => {
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0) {
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+  }
+
+  const rows = await db.query(
+    "SELECT COUNT(*) as count FROM likes_dislikes WHERE video_id = ? AND type = 1",
+    [parsedVideoId]
+  );
+
+  return Number(rows?.[0]?.count || 0);
+};
+
 export default {
   findPaginated,
   createVideo,
   createShort,
   recordView,
   toggleLike,
+  getLikeCount,
 };

@@ -4,6 +4,7 @@ import {
   createShort as createShortRecord,
   recordView,
   toggleLike,
+  getLikeCount,
 } from "./videos.service.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
@@ -377,6 +378,22 @@ export const likeVideo = async (req, res, next) => {
   }
 };
 
+export const getVideoLikes = async (req, res, next) => {
+  try {
+    const videoId = parseVideoId(req?.params?.id);
+    if (!videoId) {
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
+    }
+
+    const likeCount = await getLikeCount(videoId);
+    res.status(200).json({ data: { videoId, likes: likeCount } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default {
   getAllVideos,
   getFilteredVideos,
@@ -385,4 +402,5 @@ export default {
   createShort,
   createView,
   likeVideo,
+  getVideoLikes,
 };
