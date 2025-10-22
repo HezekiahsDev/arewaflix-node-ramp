@@ -531,6 +531,103 @@ export const getUserReaction = async (videoId, userId) => {
   return t;
 };
 
+export const searchVideos = async ({
+  query = "",
+  page = 1,
+  limit = 20,
+  approved,
+  privacy,
+  featured,
+} = {}) => {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  let safePage = Math.max(1, Number(page) || 1);
+  let offset = 0;
+
+  const searchTerm = String(query || "").trim();
+  if (!searchTerm) {
+    // If no search term, return empty results
+    return {
+      data: [],
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+
+  try {
+    // Build WHERE clause with search + optional filters
+    const whereClauses = [];
+    const whereValues = [];
+
+    // Search in title, description, and tags using LIKE
+    const searchPattern = `%${searchTerm}%`;
+    whereClauses.push("(title LIKE ? OR description LIKE ? OR tags LIKE ?)");
+    whereValues.push(searchPattern, searchPattern, searchPattern);
+
+    if (approved !== undefined) {
+      whereClauses.push("approved = ?");
+      whereValues.push(Number(approved));
+    }
+    if (featured !== undefined) {
+      whereClauses.push("featured = ?");
+      whereValues.push(Number(featured));
+    }
+    if (privacy !== undefined) {
+      whereClauses.push("privacy = ?");
+      whereValues.push(Number(privacy));
+    }
+
+    const whereSql = `WHERE ${whereClauses.join(" AND ")}`;
+
+    // Count total matching videos
+    const totalRows = await db.query(
+      `SELECT COUNT(*) as total FROM videos ${whereSql}`,
+      whereValues
+    );
+    const total = Number(totalRows?.[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    if (safePage > totalPages) safePage = totalPages;
+    offset = (safePage - 1) * safeLimit;
+
+    // Fetch matching videos ordered by relevance (views desc, then recent)
+    const rows = await db.query(
+      `SELECT *
+       FROM videos
+       ${whereSql}
+       ORDER BY views DESC, publication_date DESC, time DESC
+       LIMIT ${safeLimit} OFFSET ${offset}`,
+      whereValues
+    );
+
+    return {
+      data: rows,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages,
+      },
+    };
+  } catch (err) {
+    console.warn(
+      "DB query failed in videos.service.searchVideos — returning empty:",
+      err.message
+    );
+    return {
+      data: [],
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+};
+
 export default {
   findPaginated,
   createVideo,
@@ -538,4 +635,6 @@ export default {
   recordView,
   toggleLike,
   getLikeCount,
+  getUserReaction,
+  searchVideos,
 };

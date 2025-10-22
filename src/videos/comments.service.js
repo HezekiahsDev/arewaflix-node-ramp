@@ -59,7 +59,16 @@ export const getCommentsForVideo = async ({
   const total = Number(totalRows?.[0]?.total || 0);
 
   const rows = await db.query(
-    "SELECT * FROM comments WHERE video_id = ? ORDER BY time DESC LIMIT ? OFFSET ?",
+    `SELECT 
+      c.*, 
+      u.username,
+      u.avatar,
+      u.verified
+    FROM comments c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.video_id = ?
+    ORDER BY c.time DESC
+    LIMIT ? OFFSET ?`,
     [vid, safeLimit, offset]
   );
 

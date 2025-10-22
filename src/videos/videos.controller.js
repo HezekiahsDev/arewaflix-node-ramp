@@ -6,6 +6,7 @@ import {
   toggleLike,
   getLikeCount,
   getUserReaction as getUserReactionFromService,
+  searchVideos,
 } from "./videos.service.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
@@ -415,6 +416,48 @@ export const getUserReaction = async (req, res, next) => {
   }
 };
 
+export const searchVideosController = async (req, res, next) => {
+  try {
+    const { q, page, limit, approved, privacy, featured } = req.query;
+
+    if (!q || !String(q).trim()) {
+      return res.status(400).json({
+        error: "'q' query parameter is required for search.",
+      });
+    }
+
+    // Validate featured: must be 0 or 1 if provided
+    if (featured !== undefined && featured !== "") {
+      if (!/^[01]$/.test(String(featured))) {
+        return res.status(400).json({
+          error: "Invalid 'featured' query param. Allowed values: 0 or 1.",
+        });
+      }
+    }
+
+    const filters = { query: q };
+    if (page !== undefined) filters.page = page;
+    if (limit !== undefined) filters.limit = limit;
+    if (approved !== undefined && approved !== "") {
+      const a = Number(approved);
+      if (!Number.isNaN(a)) filters.approved = a;
+    }
+    if (privacy !== undefined && privacy !== "") {
+      const p = Number(privacy);
+      if (!Number.isNaN(p)) filters.privacy = p;
+    }
+    if (featured !== undefined && featured !== "") {
+      const f = Number(featured);
+      if (!Number.isNaN(f)) filters.featured = f;
+    }
+
+    const result = await searchVideos(filters);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default {
   getAllVideos,
   getFilteredVideos,
@@ -424,4 +467,6 @@ export default {
   createView,
   likeVideo,
   getVideoReactions,
+  getUserReaction,
+  searchVideosController,
 };
