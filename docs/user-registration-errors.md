@@ -5,6 +5,7 @@ This document lists all possible error responses that can be returned by the `/u
 ## Validation Errors (Status: 400)
 
 ### Required Fields Missing
+
 ```json
 {
   "success": false,
@@ -13,6 +14,7 @@ This document lists all possible error responses that can be returned by the `/u
 ```
 
 ### Username Too Short
+
 ```json
 {
   "success": false,
@@ -21,6 +23,7 @@ This document lists all possible error responses that can be returned by the `/u
 ```
 
 ### Invalid Email Format
+
 ```json
 {
   "success": false,
@@ -29,6 +32,7 @@ This document lists all possible error responses that can be returned by the `/u
 ```
 
 ### Password Too Short
+
 ```json
 {
   "success": false,
@@ -39,6 +43,7 @@ This document lists all possible error responses that can be returned by the `/u
 ## Conflict Errors (Status: 409)
 
 ### Username Already Taken
+
 ```json
 {
   "success": false,
@@ -53,6 +58,7 @@ This document lists all possible error responses that can be returned by the `/u
 ```
 
 ### Email Already Exists
+
 ```json
 {
   "success": false,
@@ -67,6 +73,7 @@ This document lists all possible error responses that can be returned by the `/u
 ```
 
 ### Both Username and Email Taken
+
 ```json
 {
   "success": false,
@@ -87,6 +94,7 @@ This document lists all possible error responses that can be returned by the `/u
 ## Server Errors (Status: 500)
 
 ### Database or Internal Server Error
+
 ```json
 {
   "success": false,
@@ -101,7 +109,8 @@ This document lists all possible error responses that can be returned by the `/u
 ## Success Response (Status: 201)
 
 For reference, the successful registration response:
-```json
+
+````json
 {
   "success": true,
   "message": "User logged in successfully",
@@ -118,3 +127,4 @@ For reference, the successful registration response:
 }
 ```</content>
 <parameter name="filePath">/home/hezekiahs-dev/Desktop/projects/vehance/extra/arewaflix-node-ramp/docs/user-registration-errors.md
+````

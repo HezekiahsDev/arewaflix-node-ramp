@@ -31,7 +31,7 @@ router.get("/filter", getFilteredVideos);
 // GET /api/v1/videos/search?q=query&limit=20&page=1
 router.get("/search", searchVideosController);
 
-// GET /api/v1/videos/random?count=5
+// GET /api/v1/videos/random?page=1&limit=20
 router.get("/random", getRandomVideosController);
 
 // POST /api/v1/videos/shorts

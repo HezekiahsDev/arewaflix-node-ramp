@@ -461,20 +461,31 @@ export const searchVideosController = async (req, res, next) => {
 
 export const getRandomVideosController = async (req, res, next) => {
   try {
-    const { count, approved, privacy } = req.query;
+    const { page, limit, approved, privacy } = req.query;
 
-    // Validate count if provided
-    if (count !== undefined && count !== "") {
-      const c = Number(count);
-      if (Number.isNaN(c) || c < 5 || c > 10) {
+    // Validate page if provided
+    if (page !== undefined && page !== "") {
+      const p = Number(page);
+      if (Number.isNaN(p) || p < 1) {
         return res.status(400).json({
-          error: "Invalid 'count' query param. Allowed values: 5-10.",
+          error: "Invalid 'page' query param. Must be a positive integer.",
+        });
+      }
+    }
+
+    // Validate limit if provided
+    if (limit !== undefined && limit !== "") {
+      const l = Number(limit);
+      if (Number.isNaN(l) || l < 1 || l > 100) {
+        return res.status(400).json({
+          error: "Invalid 'limit' query param. Allowed values: 1-100.",
         });
       }
     }
 
     const filters = {};
-    if (count !== undefined) filters.count = count;
+    if (page !== undefined) filters.page = page;
+    if (limit !== undefined) filters.limit = limit;
     if (approved !== undefined && approved !== "") {
       const a = Number(approved);
       if (!Number.isNaN(a)) filters.approved = a;

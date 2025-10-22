@@ -629,11 +629,14 @@ export const searchVideos = async ({
 };
 
 export const getRandomVideos = async ({
-  count = 5,
+  page = 1,
+  limit = 20,
   approved,
   privacy,
 } = {}) => {
-  const safeCount = Math.max(5, Math.min(Number(count) || 5, 10));
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  let safePage = Math.max(1, Number(page) || 1);
+  let offset = 0;
 
   try {
     // Build WHERE clause with optional filters
@@ -653,19 +656,34 @@ export const getRandomVideos = async ({
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
 
-    // Fetch random videos
+    // Count total matching videos for pagination
+    const totalRows = await db.query(
+      `SELECT COUNT(*) as total FROM videos ${whereSql}`,
+      whereValues
+    );
+    const total = Number(totalRows?.[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    if (safePage > totalPages) safePage = totalPages;
+    offset = (safePage - 1) * safeLimit;
+
+    // Fetch random videos with pagination
     const rows = await db.query(
       `SELECT *
        FROM videos
        ${whereSql}
        ORDER BY RAND()
-       LIMIT ${safeCount}`,
+       LIMIT ${safeLimit} OFFSET ${offset}`,
       whereValues
     );
 
     return {
       data: rows,
-      count: rows.length,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages,
+      },
     };
   } catch (err) {
     console.warn(
@@ -674,7 +692,12 @@ export const getRandomVideos = async ({
     );
     return {
       data: [],
-      count: 0,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total: 0,
+        totalPages: 0,
+      },
     };
   }
 };
