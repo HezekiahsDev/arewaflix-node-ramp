@@ -5,7 +5,7 @@ import {
   recordView,
   toggleLike,
   getLikeCount,
-  getUserReaction,
+  getUserReaction as getUserReactionFromService,
 } from "./videos.service.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
@@ -408,7 +408,7 @@ export const getUserReaction = async (req, res, next) => {
       });
     }
 
-    const reaction = await getUserReaction(videoId, userId);
+    const reaction = await getUserReactionFromService(videoId, userId);
     res.status(200).json({ data: { videoId, reaction } });
   } catch (err) {
     next(err);
