@@ -509,6 +509,28 @@ export const getLikeCount = async (videoId) => {
   };
 };
 
+export const getUserReaction = async (videoId, userId) => {
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0) {
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+  }
+
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId) {
+    // Caller should ensure authentication, but return 0 for anonymous
+    return 0;
+  }
+
+  const rows = await db.query(
+    "SELECT type FROM likes_dislikes WHERE user_id = ? AND video_id = ? LIMIT 1",
+    [parsedUserId, parsedVideoId]
+  );
+
+  if (!rows || !rows.length) return 0;
+  const t = Number(rows[0].type) || 0;
+  return t;
+};
+
 export default {
   findPaginated,
   createVideo,

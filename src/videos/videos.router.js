@@ -9,6 +9,7 @@ import {
   createView,
   likeVideo,
   getVideoReactions,
+  getUserReaction,
 } from "./videos.controller.js";
 import commentsRouter from "./comments.router.js";
 
@@ -39,6 +40,9 @@ router.post("/reactions", requireAuth, likeVideo);
 
 // GET /api/v1/videos/:id/reactions
 router.get("/:id/reactions", getVideoReactions);
+
+// GET /api/v1/videos/:id/reaction (checks current user's reaction)
+router.get("/:id/reaction", requireAuth, getUserReaction);
 
 // Mount comments router
 router.use("/:id/comments", commentsRouter);

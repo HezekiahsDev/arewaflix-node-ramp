@@ -5,6 +5,7 @@ import {
   recordView,
   toggleLike,
   getLikeCount,
+  getUserReaction,
 } from "./videos.service.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
@@ -389,6 +390,26 @@ export const getVideoReactions = async (req, res, next) => {
 
     const counts = await getLikeCount(videoId);
     res.status(200).json({ data: { videoId, ...counts } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getUserReaction = async (req, res, next) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const videoId = parseVideoId(req?.params?.id);
+    if (!videoId) {
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
+    }
+
+    const reaction = await getUserReaction(videoId, userId);
+    res.status(200).json({ data: { videoId, reaction } });
   } catch (err) {
     next(err);
   }
