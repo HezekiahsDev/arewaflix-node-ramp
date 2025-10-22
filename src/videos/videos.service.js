@@ -430,9 +430,11 @@ export const toggleLike = async ({ userId, videoId, action }) => {
 
   if (action === "remove") {
     if (existingLike?.length) {
-      await db.query("DELETE FROM likes_dislikes WHERE id = ?", [
-        existingLike[0].id,
-      ]);
+      // Remove all matching rows for safety (in case duplicates exist)
+      await db.query(
+        "DELETE FROM likes_dislikes WHERE user_id = ? AND video_id = ?",
+        [parsedUserId, parsedVideoId]
+      );
       return {
         action: "removed",
         message: "Like/dislike removed successfully.",
@@ -461,13 +463,24 @@ export const toggleLike = async ({ userId, videoId, action }) => {
     return { action, message: `Video ${action} updated successfully.` };
   }
 
-  // No existing record, create new
-  await db.query(
-    "INSERT INTO likes_dislikes (user_id, video_id, type, time) VALUES (?, ?, ?, ?)",
-    [parsedUserId, parsedVideoId, type, timestamp]
-  );
-
-  return { action, message: `Video ${action}d successfully.` };
+  // No existing record, create new. If a race caused a duplicate insert, try to update
+  try {
+    await db.query(
+      "INSERT INTO likes_dislikes (user_id, video_id, type, time) VALUES (?, ?, ?, ?)",
+      [parsedUserId, parsedVideoId, type, timestamp]
+    );
+    return { action, message: `Video ${action}d successfully.` };
+  } catch (err) {
+    // If duplicate entry (race), attempt to update the existing record(s)
+    if (err && err.code === "ER_DUP_ENTRY") {
+      await db.query(
+        "UPDATE likes_dislikes SET type = ?, time = ? WHERE user_id = ? AND video_id = ?",
+        [type, timestamp, parsedUserId, parsedVideoId]
+      );
+      return { action, message: `Video ${action} (race-handled) updated successfully.` };
+    }
+    throw err;
+  }
 };
 
 export const getLikeCount = async (videoId) => {
