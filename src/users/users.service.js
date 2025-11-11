@@ -32,6 +32,38 @@ export const findById = async (id) => {
   return user;
 };
 
+export const deleteById = async (id) => {
+  // Delete a user by id. Returns the raw result from mysql2 which includes affectedRows.
+  const [result] = await db.pool.execute("DELETE FROM users WHERE id = ?", [
+    id,
+  ]);
+  return result;
+};
+
+export const changePassword = async (id, oldPassword, newPassword) => {
+  // Fetch the current hashed password
+  const [rows] = await db.pool.execute(
+    "SELECT password FROM users WHERE id = ?",
+    [id]
+  );
+  const user = rows[0];
+  if (!user) {
+    return { notFound: true };
+  }
+
+  const match = await bcrypt.compare(oldPassword, user.password);
+  if (!match) {
+    return { incorrectOldPassword: true };
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  const [result] = await db.pool.execute(
+    "UPDATE users SET password = ? WHERE id = ?",
+    [hashed, id]
+  );
+  return result;
+};
+
 export const register = async (userData) => {
   const { username, email, password, gender, ...otherData } = userData;
 
@@ -68,4 +100,4 @@ export const register = async (userData) => {
   return user;
 };
 
-export default { findAll, register, findById };
+export default { findAll, register, findById, deleteById, changePassword };
