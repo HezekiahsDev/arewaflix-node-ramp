@@ -3,18 +3,10 @@ import jwt from "jsonwebtoken";
 import db from "../models/db.js";
 import config from "../config/config.js";
 import HttpError from "../utils/httpError.js";
+import mailService from "../utils/mailService.js";
 
-// In-memory OTP store: Map<email, { otp: string, expiresAt: number, attempts: number }>
-const otpStore = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_OTP_ATTEMPTS = 5;
-
-async function sendOtpByEmail(email, otp) {
-  // Placeholder email sender. Replace with real email provider (nodemailer, SES, SendGrid, etc.)
-  // Keep this asynchronous to allow easy replacement.
-  console.log(`Sending OTP ${otp} to ${email}`);
-  return Promise.resolve();
-}
 
 function isValidEmail(email) {
   // Simple email validation to avoid obvious invalid input
@@ -72,10 +64,16 @@ class AuthService {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + OTP_TTL_MS;
 
-    otpStore.set(email, { otp, expiresAt, attempts: 0 });
+    const userId = rows[0].id;
 
-    // Send OTP via email (placeholder)
-    await sendOtpByEmail(email, otp);
+    // Persist OTP into DB
+    await db.pool.execute(
+      "INSERT INTO password_reset_otps (user_id, email, otp, expires_at, attempts, consumed) VALUES (?, ?, ?, ?, 0, 0)",
+      [userId, email, otp, expiresAt]
+    );
+
+    // Send OTP via configured mail service (may log if SMTP not configured)
+    await mailService.sendPasswordResetOtp(email, otp);
 
     return { ok: true };
   }
@@ -97,29 +95,47 @@ class AuthService {
       return { notFound: true };
     }
 
-    const entry = otpStore.get(email);
+    // Find the most recent unconsumed OTP for this email
+    const [otpRows] = await db.pool.execute(
+      "SELECT * FROM password_reset_otps WHERE email = ? AND consumed = 0 ORDER BY created_at DESC LIMIT 1",
+      [email]
+    );
+    const entry = otpRows[0];
     if (!entry) {
       return { invalid: true };
     }
 
-    if (Date.now() > entry.expiresAt) {
-      otpStore.delete(email);
+    const now = Date.now();
+    if (now > Number(entry.expires_at)) {
+      // Mark consumed to avoid reuse
+      await db.pool.execute(
+        "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
+        [entry.id]
+      );
       return { expired: true };
     }
 
     if (entry.attempts >= MAX_OTP_ATTEMPTS) {
-      otpStore.delete(email);
+      await db.pool.execute(
+        "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
+        [entry.id]
+      );
       return { invalid: true };
     }
 
-    if (entry.otp !== String(otp)) {
-      entry.attempts += 1;
-      otpStore.set(email, entry);
+    if (String(entry.otp) !== String(otp)) {
+      await db.pool.execute(
+        "UPDATE password_reset_otps SET attempts = attempts + 1 WHERE id = ?",
+        [entry.id]
+      );
       return { invalid: true };
     }
 
-    // Successful verification — consume OTP
-    otpStore.delete(email);
+    // Correct OTP — mark as consumed
+    await db.pool.execute(
+      "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
+      [entry.id]
+    );
     return { ok: true };
   }
 }
