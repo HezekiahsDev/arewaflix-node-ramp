@@ -7,6 +7,7 @@ router.post("/login", authController.login);
 
 // Forgot password flows
 router.post("/forgot-password/request", authController.requestPasswordReset);
-router.post("/forgot-password/verify", authController.verifyPasswordOtp);
+router.post("/verify-otp", authController.verifyPasswordOtp);
+router.post("/reset-password", authController.resetPassword);
 
 export default router;

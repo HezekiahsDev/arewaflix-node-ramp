@@ -121,8 +121,76 @@ class AuthController {
         return res.status(400).json({ success: false, message: "Invalid OTP" });
       }
 
-      // Success: OTP verified. Caller can now allow password reset.
-      return res.json({ success: true, message: "OTP verified" });
+      // Success: OTP verified. Return a short-lived token the client can use
+      // to optionally authorize the password reset operation.
+      return res.json({
+        success: true,
+        message: "OTP verified",
+        token: result.token,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async resetPassword(req, res, next) {
+    try {
+      const rawEmail = sanitizeString(req.body && req.body.email);
+      const rawOtp = sanitizeString(req.body && req.body.otp);
+      const rawPassword =
+        typeof req.body?.password === "string" ? req.body.password : undefined;
+
+      if (!rawEmail || !isValidEmail(rawEmail)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Valid email is required" });
+      }
+      if (!rawOtp || !otpRegex.test(rawOtp)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "OTP must be a 6-digit code" });
+      }
+      if (!isValidPassword(rawPassword)) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Password must be 8-128 characters",
+          });
+      }
+
+      const result = await authService.resetPassword(
+        rawEmail,
+        rawOtp,
+        rawPassword
+      );
+
+      if (result && result.notFound) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Email not found" });
+      }
+      if (result && result.expired) {
+        return res.status(400).json({ success: false, message: "OTP expired" });
+      }
+      if (result && result.invalid) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Invalid OTP or too many attempts",
+          });
+      }
+      if (result && result.invalidPassword) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Password must be 8-128 characters",
+          });
+      }
+
+      return res.json({ success: true, message: "Password reset successful" });
     } catch (err) {
       return next(err);
     }

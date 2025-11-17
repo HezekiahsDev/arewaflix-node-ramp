@@ -172,7 +172,74 @@ class AuthService {
       return { invalid: true };
     }
 
-    // Correct OTP — mark as consumed
+    // Correct OTP — do NOT delete it yet. We'll delete it only after the
+    // password has actually been reset (so the OTP can be used in the reset
+    // endpoint). Issue a short-lived JWT for optional client flows.
+    const tokenExpires = process.env.PASSWORD_RESET_TOKEN_EXPIRES || "15m";
+    const payload = {
+      id: rows[0].id,
+      email: rows[0].email,
+      purpose: "password_reset",
+    };
+    const token = jwt.sign(payload, config.jwt.secret, {
+      expiresIn: tokenExpires,
+    });
+
+    return { ok: true, token };
+  }
+
+  // Reset password using OTP and new password. Deletes the OTP only after
+  // successful password update.
+  async resetPassword(email, otp, newPassword) {
+    email = sanitizeString(email);
+    otp = sanitizeString(otp);
+    newPassword = typeof newPassword === "string" ? newPassword : undefined;
+
+    if (!isValidEmail(email)) return { invalid: true };
+    if (!/^[0-9]{6}$/.test(String(otp))) return { invalid: true };
+    if (!newPassword || newPassword.length < 8 || newPassword.length > 128) {
+      return { invalidPassword: true };
+    }
+
+    const rows = await db.query(
+      "SELECT id, email FROM users WHERE email = ? LIMIT 1",
+      [email]
+    );
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { notFound: true };
+    }
+
+    const userId = rows[0].id;
+
+    const entry = await passwordOtpStore.getLatest(email);
+    if (!entry) return { invalid: true };
+
+    const now = Date.now();
+    if (now > Number(entry.expires_at)) {
+      await passwordOtpStore.deleteById(entry.id);
+      return { expired: true };
+    }
+
+    if (entry.attempts >= MAX_OTP_ATTEMPTS) {
+      await passwordOtpStore.deleteById(entry.id);
+      return { invalid: true };
+    }
+
+    if (String(entry.otp) !== String(otp)) {
+      const attempts = await passwordOtpStore.incrementAttempts(entry.id);
+      if (attempts !== null && attempts >= MAX_OTP_ATTEMPTS) {
+        await passwordOtpStore.deleteById(entry.id);
+      }
+      return { invalid: true };
+    }
+
+    // OTP matches — update password and then delete the OTP
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.pool.execute("UPDATE users SET password = ? WHERE id = ?", [
+      hashed,
+      userId,
+    ]);
+
     await passwordOtpStore.deleteById(entry.id);
     return { ok: true };
   }
