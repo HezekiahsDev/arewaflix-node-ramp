@@ -87,4 +87,42 @@ export default {
   async clearAll() {
     await writeAll([]);
   },
+
+  // Remove entries whose expires_at is in the past. Returns number removed.
+  async cleanupExpired() {
+    const all = await readAll();
+    const now = Date.now();
+    const remaining = all.filter((e) => Number(e.expires_at) > now);
+    const removed = all.length - remaining.length;
+    if (removed > 0) {
+      await writeAll(remaining);
+    }
+    return removed;
+  },
+
+  // Start a periodic cleaner that runs every `intervalMs` (default 60s).
+  // Returns an object with a `stop()` method to cancel the interval.
+  startPeriodicCleanup(intervalMs = 60 * 1000) {
+    let stopped = false;
+    const id = setInterval(async () => {
+      try {
+        const removed = await this.cleanupExpired();
+        if (removed > 0) {
+          // optional: log to console for visibility
+          console.log(`passwordOtpStore: cleaned ${removed} expired entries`);
+        }
+      } catch (err) {
+        // do not crash the process for cleanup errors; just log
+        console.error("passwordOtpStore cleanup error:", err);
+      }
+    }, intervalMs);
+    return {
+      stop() {
+        if (!stopped) {
+          clearInterval(id);
+          stopped = true;
+        }
+      },
+    };
+  },
 };
