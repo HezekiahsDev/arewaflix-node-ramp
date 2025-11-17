@@ -65,22 +65,33 @@ export const changePassword = async (id, oldPassword, newPassword) => {
 };
 
 export const register = async (userData) => {
-  const { username, email, password, gender, ...otherData } = userData;
+  // Only allow a fixed set of fields to be created to avoid privilege escalation
+  const allowed = [
+    "username",
+    "email",
+    "password",
+    "gender",
+    "first_name",
+    "last_name",
+    "display_name",
+  ];
+
+  const payload = {};
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(userData, k)) {
+      payload[k] = userData[k];
+    }
+  }
+
+  if (!payload.username || !payload.email || !payload.password) {
+    throw new Error("username, email and password are required");
+  }
 
   // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  payload.password = await bcrypt.hash(payload.password, 10);
 
-  // Create new user
-  const newUser = {
-    username,
-    email,
-    password: hashedPassword,
-    gender,
-    ...otherData,
-  };
-
-  const columns = Object.keys(newUser);
-  const values = Object.values(newUser);
+  const columns = Object.keys(payload);
+  const values = Object.values(payload);
   const placeholders = columns.map(() => "?").join(", ");
   const sql = `INSERT INTO users (${columns.join(
     ", "
@@ -94,9 +105,8 @@ export const register = async (userData) => {
   ]);
   const user = rows[0];
 
-  // Don't return password
-  delete user.password;
-
+  // Don't return password and only return safe fields
+  if (user) delete user.password;
   return user;
 };
 

@@ -1,13 +1,15 @@
 import usersService from "./users.service.js";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
+import {
+  sanitizeUserForClient,
+  sanitizeUsersList,
+} from "../utils/userSanitizer.js";
 
 export const getAllUsers = async (req, res, next) => {
   try {
     const users = await usersService.findAll();
-    return res.json({
-      data: users,
-    });
+    return res.json({ data: sanitizeUsersList(users) });
   } catch (err) {
     // Forward error to error handler middleware
     return next(err);
@@ -24,10 +26,7 @@ export const getMe = async (req, res, next) => {
         message: "User not found",
       });
     }
-    return res.json({
-      success: true,
-      data: user,
-    });
+    return res.json({ success: true, data: sanitizeUserForClient(user) });
   } catch (err) {
     return next(err);
   }
@@ -47,7 +46,7 @@ export const register = async (req, res, next) => {
       success: true,
       message: "User logged in successfully",
       data: {
-        user,
+        user: sanitizeUserForClient(user),
         token,
       },
     });

@@ -4,6 +4,7 @@ import db from "../models/db.js";
 import config from "../config/config.js";
 import HttpError from "../utils/httpError.js";
 import mailService from "../utils/mailService.js";
+import passwordOtpStore from "./passwordOtpStore.js";
 
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_OTP_ATTEMPTS = 5;
@@ -111,11 +112,13 @@ class AuthService {
 
     const userId = rows[0].id;
 
-    // Persist OTP into DB
-    await db.pool.execute(
-      "INSERT INTO password_reset_otps (user_id, email, otp, expires_at, attempts, consumed) VALUES (?, ?, ?, ?, 0, 0)",
-      [userId, email, otp, expiresAt]
-    );
+    // Persist OTP into JSON store (file-based)
+    await passwordOtpStore.createOtp({
+      userId,
+      email,
+      otp,
+      expiresAt,
+    });
 
     // Send OTP via configured mail service (may log if SMTP not configured)
     await mailService.sendPasswordResetOtp(email, otp);
@@ -143,46 +146,34 @@ class AuthService {
     }
 
     // Find the most recent unconsumed OTP for this email
-    const [otpRows] = await db.pool.execute(
-      "SELECT * FROM password_reset_otps WHERE email = ? AND consumed = 0 ORDER BY created_at DESC LIMIT 1",
-      [email]
-    );
-    const entry = otpRows[0];
+    const entry = await passwordOtpStore.getLatest(email);
     if (!entry) {
       return { invalid: true };
     }
 
     const now = Date.now();
     if (now > Number(entry.expires_at)) {
-      // Mark consumed to avoid reuse
-      await db.pool.execute(
-        "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
-        [entry.id]
-      );
+      // Remove expired entry
+      await passwordOtpStore.deleteById(entry.id);
       return { expired: true };
     }
 
     if (entry.attempts >= MAX_OTP_ATTEMPTS) {
-      await db.pool.execute(
-        "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
-        [entry.id]
-      );
+      await passwordOtpStore.deleteById(entry.id);
       return { invalid: true };
     }
 
     if (String(entry.otp) !== String(otp)) {
-      await db.pool.execute(
-        "UPDATE password_reset_otps SET attempts = attempts + 1 WHERE id = ?",
-        [entry.id]
-      );
+      const attempts = await passwordOtpStore.incrementAttempts(entry.id);
+      if (attempts !== null && attempts >= MAX_OTP_ATTEMPTS) {
+        // remove if max attempts reached
+        await passwordOtpStore.deleteById(entry.id);
+      }
       return { invalid: true };
     }
 
     // Correct OTP — mark as consumed
-    await db.pool.execute(
-      "UPDATE password_reset_otps SET consumed = 1 WHERE id = ?",
-      [entry.id]
-    );
+    await passwordOtpStore.deleteById(entry.id);
     return { ok: true };
   }
 }
