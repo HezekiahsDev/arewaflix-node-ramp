@@ -13,11 +13,29 @@ function isValidEmail(email) {
   return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function isValidUsername(v) {
+  return typeof v === "string" && /^[a-zA-Z0-9_]{3,30}$/.test(v);
+}
+
+function sanitizeString(v) {
+  return typeof v === "string" ? v.trim() : undefined;
+}
+
 class AuthService {
   async login(userData) {
-    const { identifier, password } = userData;
+    let { identifier, password } = userData;
+    identifier = sanitizeString(identifier);
+    password = typeof password === "string" ? password : undefined;
 
-    // Find by username or email
+    // Basic input checks
+    if (!identifier || !password) {
+      throw new HttpError("username/email and password are required.", 400);
+    }
+    if (password.length < 8 || password.length > 128) {
+      throw new HttpError("Invalid credentials.", 401);
+    }
+
+    // Find by username or email (parameterized query prevents SQL injection)
     const rows = await db.query(
       "SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1",
       [identifier, identifier]
@@ -47,6 +65,7 @@ class AuthService {
   }
 
   async requestPasswordReset(email) {
+    email = sanitizeString(email);
     if (!isValidEmail(email)) {
       return { invalid: true };
     }
@@ -79,6 +98,8 @@ class AuthService {
   }
 
   async verifyPasswordOtp(email, otp) {
+    email = sanitizeString(email);
+    otp = sanitizeString(otp);
     if (!isValidEmail(email)) {
       return { invalid: true };
     }

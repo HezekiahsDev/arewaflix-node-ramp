@@ -1,23 +1,65 @@
 import authService from "./auth.service.js";
 
+// Basic validators/sanitizers kept local to avoid adding a dependency.
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/; // allow alphanumeric + underscore, 3-30 chars
+const otpRegex = /^[0-9]{6}$/;
+
+function sanitizeString(v) {
+  return typeof v === "string" ? v.trim() : undefined;
+}
+
+function isValidEmail(v) {
+  return typeof v === "string" && emailRegex.test(v);
+}
+
+function isValidUsername(v) {
+  return typeof v === "string" && usernameRegex.test(v);
+}
+
+function isValidPassword(v) {
+  return typeof v === "string" && v.length >= 8 && v.length <= 128;
+}
+
 class AuthController {
   async login(req, res, next) {
     try {
-      const { username, email, password } = req.body;
-      const identifier = username || email;
-      if (!identifier || !password) {
+      // Sanitize inputs
+      const rawUsername = sanitizeString(req.body && req.body.username);
+      const rawEmail = sanitizeString(req.body && req.body.email);
+      const rawPassword =
+        typeof req.body?.password === "string" ? req.body.password : undefined;
+
+      // Determine identifier
+      let identifier;
+      if (rawEmail && isValidEmail(rawEmail)) {
+        identifier = rawEmail;
+      } else if (rawUsername && isValidUsername(rawUsername)) {
+        identifier = rawUsername;
+      }
+
+      if (!identifier) {
         return res.status(400).json({
           success: false,
-          message: "username or email, and password are required",
+          message: "Valid username or email is required",
         });
       }
 
-      const data = await authService.login({ identifier, password });
-      res.status(200).json({
-        success: true,
-        message: "User logged in successfully",
-        data,
+      if (!isValidPassword(rawPassword)) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be 8-128 characters",
+        });
+      }
+
+      // Call service with sanitized identifier and password
+      const data = await authService.login({
+        identifier,
+        password: rawPassword,
       });
+      return res
+        .status(200)
+        .json({ success: true, message: "User logged in successfully", data });
     } catch (error) {
       next(error);
     }
@@ -25,14 +67,14 @@ class AuthController {
 
   async requestPasswordReset(req, res, next) {
     try {
-      const { email } = req.body || {};
-      if (!email || typeof email !== "string") {
+      const rawEmail = sanitizeString(req.body && req.body.email);
+      if (!rawEmail || !isValidEmail(rawEmail) || rawEmail.length > 254) {
         return res
           .status(400)
           .json({ success: false, message: "Valid email is required" });
       }
 
-      const result = await authService.requestPasswordReset(email.trim());
+      const result = await authService.requestPasswordReset(rawEmail);
       if (result && result.notFound) {
         return res
           .status(404)
@@ -51,22 +93,21 @@ class AuthController {
 
   async verifyPasswordOtp(req, res, next) {
     try {
-      const { email, otp } = req.body || {};
-      if (!email || typeof email !== "string") {
+      const rawEmail = sanitizeString(req.body && req.body.email);
+      const rawOtp = sanitizeString(req.body && req.body.otp);
+
+      if (!rawEmail || !isValidEmail(rawEmail)) {
         return res
           .status(400)
           .json({ success: false, message: "Valid email is required" });
       }
-      if (!otp || typeof otp !== "string") {
+      if (!rawOtp || !otpRegex.test(rawOtp)) {
         return res
           .status(400)
-          .json({ success: false, message: "OTP is required" });
+          .json({ success: false, message: "OTP must be a 6-digit code" });
       }
 
-      const result = await authService.verifyPasswordOtp(
-        email.trim(),
-        otp.trim()
-      );
+      const result = await authService.verifyPasswordOtp(rawEmail, rawOtp);
 
       if (result && result.notFound) {
         return res
