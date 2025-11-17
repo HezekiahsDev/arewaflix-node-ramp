@@ -15,17 +15,21 @@ const errorHandler = (err, req, res, next) => {
     }
   }
 
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      message,
-      details: err?.details,
-      stack:
-        process.env.NODE_ENV === "development" && !isHttpError
-          ? err?.stack
-          : undefined,
-    },
-  });
+  // Only expose minimal error details to clients. In development, return more
+  // information to aid debugging. Never send internal stack traces in
+  // production.
+  const isDev = process.env.NODE_ENV === "development";
+  const clientError = {
+    message,
+  };
+
+  if (isDev) {
+    // In development include details and stack for easier debugging
+    if (err?.details !== undefined) clientError.details = err.details;
+    if (!isHttpError && err?.stack) clientError.stack = err.stack;
+  }
+
+  res.status(statusCode).json({ success: false, error: clientError });
 };
 
 export default errorHandler;

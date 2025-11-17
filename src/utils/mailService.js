@@ -31,7 +31,11 @@ async function sendPasswordResetOtp(email, otp) {
   const html = `<p>Your password reset code is: <strong>${otp}</strong>.</p><p>If you didn't request this, ignore this email.</p>`;
 
   if (!transporter) {
-    console.log(`[mailService] SMTP not configured — OTP for ${email}: ${otp}`);
+    // Avoid logging full OTP in plain text to reduce accidental leakage in logs.
+    const masked = String(otp).slice(0, 2) + "****" + String(otp).slice(-1);
+    console.log(
+      `[mailService] SMTP not configured — OTP for ${email}: ${masked}`
+    );
     return Promise.resolve();
   }
 

@@ -21,6 +21,33 @@ function sanitizeString(v) {
   return typeof v === "string" ? v.trim() : undefined;
 }
 
+function sanitizeUserForClient(user) {
+  if (!user || typeof user !== "object") return {};
+  // Pick a small allowlist of safe public fields. Extend if you explicitly
+  // want to expose more fields, but avoid returning internal flags/secrets.
+  const allowed = [
+    "id",
+    "username",
+    "email",
+    "display_name",
+    "first_name",
+    "last_name",
+    "created_at",
+    "updated_at",
+    "is_active",
+  ];
+  const out = {};
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(user, k)) {
+      out[k] = user[k];
+    }
+  }
+  // Always include id and username if present
+  if (!out.id && user.id) out.id = user.id;
+  if (!out.username && user.username) out.username = user.username;
+  return out;
+}
+
 class AuthService {
   async login(userData) {
     let { identifier, password } = userData;
@@ -58,10 +85,9 @@ class AuthService {
       expiresIn: config.jwt.expiresIn,
     });
 
-    // Don't return password
-    delete user.password;
-
-    return { user, token };
+    // Don't return password and only expose a minimal user object to clients
+    const publicUser = sanitizeUserForClient(user);
+    return { user: publicUser, token };
   }
 
   async requestPasswordReset(email) {
