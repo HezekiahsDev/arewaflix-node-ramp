@@ -1,4 +1,5 @@
 import usersService from "./users.service.js";
+import { sanitizeNotificationsList } from "../utils/notificationSanitizer.js";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import {
@@ -203,7 +204,8 @@ export const getMyNotifications = async (req, res, next) => {
     }
 
     const notifications = await usersService.getNotificationsForUser(userId);
-    return res.json({ success: true, data: notifications });
+    const safe = sanitizeNotificationsList(notifications);
+    return res.json({ success: true, data: safe });
   } catch (err) {
     return next(err);
   }
