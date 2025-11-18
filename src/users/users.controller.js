@@ -5,6 +5,7 @@ import {
   sanitizeUserForClient,
   sanitizeUsersList,
 } from "../utils/userSanitizer.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 export const getAllUsers = async (req, res, next) => {
   try {
@@ -76,11 +77,42 @@ export const deleteMe = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
+    // Validate the optional `reason` field before archiving.
+    let validatedReason = null;
+    if (reason !== undefined && reason !== null) {
+      if (typeof reason !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "deletion reason must be a string",
+        });
+      }
+
+      const trimmed = reason.trim();
+      // Treat empty string as not provided
+      if (trimmed.length > 0) {
+        if (trimmed.length < 3) {
+          return res.status(400).json({
+            success: false,
+            message: "deletion reason must be at least 3 characters",
+          });
+        }
+        if (trimmed.length > 255) {
+          return res.status(400).json({
+            success: false,
+            message: "deletion reason must be at most 255 characters",
+          });
+        }
+
+        // Escape HTML to avoid storing raw markup and reduce XSS risk
+        validatedReason = escapeHtml(trimmed);
+      }
+    }
+
     // Archive user into `deleted_accounts` and cleanup related rows.
     const result = await usersService.deleteAndArchiveById(
       userId,
       "user",
-      typeof reason === "string" ? reason.trim() : null,
+      validatedReason,
       req.ip || null,
       req.get("User-Agent") || null
     );
