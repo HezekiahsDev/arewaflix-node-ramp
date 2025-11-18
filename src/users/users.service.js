@@ -251,6 +251,24 @@ export const register = async (userData) => {
   return user;
 };
 
+export const getNotificationsForUser = async (userId, limit = 100) => {
+  if (!userId) return [];
+  try {
+    // Fetch recent notifications for the recipient ordered by newest first.
+    const [rows] = await db.pool.execute(
+      "SELECT * FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT ?",
+      [userId, limit]
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn(
+      "users.service.getNotificationsForUser: DB query failed, returning empty list:",
+      err && err.message
+    );
+    return [];
+  }
+};
+
 export default {
   findAll,
   register,
@@ -258,4 +276,5 @@ export default {
   deleteById,
   changePassword,
   deleteAndArchiveById,
+  getNotificationsForUser,
 };
