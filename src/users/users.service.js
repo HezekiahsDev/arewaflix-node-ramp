@@ -355,6 +355,7 @@ export default {
   findById,
   deleteById,
   changePassword,
+  updateUserProfile,
   deleteAndArchiveById,
   getNotificationsForUser,
   markNotificationsSeenByIds,
