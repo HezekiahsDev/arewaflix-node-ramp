@@ -1,5 +1,6 @@
 import db from "../models/db.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export const findAll = async () => {
   // Try to query a `users` table if it exists in the imported SQL structure.
@@ -38,6 +39,146 @@ export const deleteById = async (id) => {
     id,
   ]);
   return result;
+};
+
+function hmacHash(value) {
+  if (!value) return null;
+  const secret = process.env.DELETED_ACCOUNTS_HMAC_SECRET || null;
+  const normalized = String(value).trim().toLowerCase();
+  if (secret) {
+    return crypto.createHmac("sha256", secret).update(normalized).digest("hex");
+  }
+  // Fallback to plain sha256 if secret not provided (less secure)
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+}
+
+export const deleteAndArchiveById = async (
+  id,
+  deletedBy = "user",
+  deletionReason = null,
+  ipAddress = null,
+  userAgent = null
+) => {
+  const conn = await db.pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute(
+      "SELECT * FROM users WHERE id = ? LIMIT 1",
+      [id]
+    );
+    const user = rows && rows[0];
+    if (!user) {
+      await conn.rollback();
+      conn.release();
+      return { notFound: true };
+    }
+
+    // Build exported data snapshot (omit password)
+    const exported = { ...user };
+    delete exported.password;
+
+    const emailHash = hmacHash(user.email || null);
+    const usernameHash = hmacHash(user.username || null);
+
+    const retentionDays = Number(
+      process.env.DELETED_ACCOUNTS_RETENTION_DAYS ||
+        process.env.RETENTION_DAYS ||
+        365
+    );
+    const retentionUntil =
+      retentionDays > 0
+        ? new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000)
+        : null;
+    const retentionUntilSql = retentionUntil
+      ? retentionUntil.toISOString().slice(0, 19).replace("T", " ")
+      : null;
+
+    // Insert into deleted_accounts (store hashes, minimal plaintext in exported_data)
+    const insertSql = `INSERT INTO deleted_accounts (
+      user_id, username_hash, email_hash, first_name, last_name, display_name,
+      exported_data, deleted_by, deletion_reason, retention_until, ip_address, user_agent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    await conn.execute(insertSql, [
+      user.id,
+      usernameHash,
+      emailHash,
+      user.first_name || null,
+      user.last_name || null,
+      user.display_name || null,
+      JSON.stringify(exported),
+      deletedBy,
+      deletionReason,
+      retentionUntilSql,
+      ipAddress,
+      userAgent,
+    ]);
+
+    // Remove or anonymize related user data across several tables.
+    // Delete interactions that should not remain after account deletion.
+    const deletes = [
+      ["DELETE FROM comments WHERE user_id = ?", [id]],
+      ["DELETE FROM comments_likes WHERE user_id = ?", [id]],
+      ["DELETE FROM likes_dislikes WHERE user_id = ?", [id]],
+      ["DELETE FROM views WHERE user_id = ?", [id]],
+      ["DELETE FROM saved_videos WHERE user_id = ?", [id]],
+      ["DELETE FROM watch_later WHERE user_id = ?", [id]],
+      ["DELETE FROM history WHERE user_id = ?", [id]],
+      ["DELETE FROM backup_codes WHERE user_id = ?", [id]],
+      ["DELETE FROM sessions WHERE user_id = ?", [id]],
+      ["DELETE FROM playlist_subscribers WHERE subscriber_id = ?", [id]],
+      ["DELETE FROM notifications WHERE notifier_id = ?", [id]],
+      ["DELETE FROM notifications WHERE recipient_id = ?", [id]],
+      ["DELETE FROM comments WHERE user_id = ?", [id]],
+    ];
+
+    for (const [sql, params] of deletes) {
+      try {
+        await conn.execute(sql, params);
+      } catch (e) {
+        // Log and continue — do not abort deletion for one-table failure
+        console.warn(
+          "deleteAndArchiveById: cleanup failed",
+          sql,
+          e && e.message
+        );
+      }
+    }
+
+    // For content-owned tables, anonymize by setting user_id = 0
+    const anonymize = [
+      ["UPDATE videos SET user_id = 0 WHERE user_id = ?", [id]],
+      ["UPDATE uploaded_videos SET user_id = 0 WHERE user_id = ?", [id]],
+      ["UPDATE pt_posts SET user_id = 0 WHERE user_id = ?", [id]],
+    ];
+    for (const [sql, params] of anonymize) {
+      try {
+        await conn.execute(sql, params);
+      } catch (e) {
+        console.warn(
+          "deleteAndArchiveById: anonymize failed",
+          sql,
+          e && e.message
+        );
+      }
+    }
+
+    // Finally delete the user row
+    const [delResult] = await conn.execute("DELETE FROM users WHERE id = ?", [
+      id,
+    ]);
+
+    await conn.commit();
+    conn.release();
+    return delResult;
+  } catch (err) {
+    try {
+      await conn.rollback();
+    } catch (e) {}
+    conn.release();
+    throw err;
+  }
 };
 
 export const changePassword = async (id, oldPassword, newPassword) => {

@@ -57,7 +57,7 @@ export const register = async (req, res, next) => {
 
 export const deleteMe = async (req, res, next) => {
   try {
-    const { confirmation } = req.body || {};
+    const { confirmation, reason } = req.body || {};
 
     // Require an explicit confirmation string to avoid accidental deletions
     if (
@@ -76,19 +76,27 @@ export const deleteMe = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    const result = await usersService.deleteById(userId);
+    // Archive user into `deleted_accounts` and cleanup related rows.
+    const result = await usersService.deleteAndArchiveById(
+      userId,
+      "user",
+      typeof reason === "string" ? reason.trim() : null,
+      req.ip || null,
+      req.get("User-Agent") || null
+    );
 
-    // result may be an object from mysql2 with affectedRows
-    const affected =
-      result &&
-      (result.affectedRows ?? result.affectedRows === 0
-        ? result.affectedRows
-        : null);
-
-    if (affected === 0) {
+    if (result && result.notFound) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
+    }
+
+    // If mysql2 result is returned, check affectedRows
+    const affected = result && (result.affectedRows ?? null);
+    if (affected === 0) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to delete account" });
     }
 
     return res.json({ success: true, message: "Account deleted successfully" });
