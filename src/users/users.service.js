@@ -253,11 +253,15 @@ export const register = async (userData) => {
 
 export const getNotificationsForUser = async (userId, limit = 100) => {
   if (!userId) return [];
+  // Ensure limit is a safe integer to avoid SQL errors or huge results
+  let lim = Number(limit) || 100;
+  lim = Math.max(1, Math.min(1000, lim));
   try {
-    // Fetch recent notifications for the recipient ordered by newest first.
+    // The `notifications` table in this project doesn't have a `created_at` column.
+    // Order by `id` (auto-increment) to get newest first.
     const [rows] = await db.pool.execute(
-      "SELECT * FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT ?",
-      [userId, limit]
+      "SELECT * FROM notifications WHERE recipient_id = ? ORDER BY id DESC LIMIT ?",
+      [userId, lim]
     );
     return rows || [];
   } catch (err) {
