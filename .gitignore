@@ -37,4 +37,4 @@ coverage/
 
 # Misc
 *.tgz
-.pnpm-debug.log
+.pnpm-debug.logdata/
