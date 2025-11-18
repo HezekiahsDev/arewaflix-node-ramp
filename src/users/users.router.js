@@ -14,7 +14,7 @@ import passport from "passport";
 
 const router = express.Router();
 
-router.post("/", validateRegistration, regispleaster);
+router.post("/", validateRegistration, register);
 // router.get("/", getAllUsers);
 router.get("/me", passport.authenticate("jwt", { session: false }), getMe);
 router.delete(
