@@ -11,6 +11,12 @@ import rateLimiter from "./middlewares/rateLimiter.js";
 
 const app = express();
 
+// If the app is running behind a trusted proxy (nginx, load balancer, platform router),
+// tell Express to trust the first proxy so `req.ip` and X-Forwarded-* headers are handled
+// correctly. This is required when express-rate-limit expects X-Forwarded-For to be
+// present from a reverse proxy. Set to `1` when there's a single front proxy.
+app.set("trust proxy", 1);
+
 // Middleware
 // Security headers
 app.use(helmet());

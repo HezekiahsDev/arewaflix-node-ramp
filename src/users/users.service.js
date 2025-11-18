@@ -251,4 +251,11 @@ export const register = async (userData) => {
   return user;
 };
 
-export default { findAll, register, findById, deleteById, changePassword };
+export default {
+  findAll,
+  register,
+  findById,
+  deleteById,
+  changePassword,
+  deleteAndArchiveById,
+};
