@@ -220,28 +220,34 @@ export const markMyNotificationsSeen = async (req, res, next) => {
 
     const { seen_time, video_ids } = req.body || {};
 
-    if (!Array.isArray(video_ids)) {
-      return res.status(400).json({
-        success: false,
-        message: "video_ids must be an array of numeric video ids",
-      });
+    // Allow a single video id (number or string) or an array of ids.
+    let ids = video_ids;
+    if (ids === undefined || ids === null) ids = [];
+    if (!Array.isArray(ids)) {
+      // Accept a single numeric/string id and wrap into an array
+      if (typeof ids === "number" || typeof ids === "string") {
+        ids = [ids];
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "video_ids must be an array or a single numeric video id",
+        });
+      }
     }
 
     const seenTime = seen_time
       ? Number(seen_time)
       : Math.floor(Date.now() / 1000);
     if (!Number.isFinite(seenTime)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "seen_time must be a valid unix timestamp",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "seen_time must be a valid unix timestamp",
+      });
     }
 
     const result = await usersService.markNotificationsSeenByVideoIds(
       userId,
-      video_ids,
+      ids,
       seenTime
     );
 
