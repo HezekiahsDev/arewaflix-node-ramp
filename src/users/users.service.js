@@ -273,6 +273,48 @@ export const getNotificationsForUser = async (userId, limit = 100) => {
   }
 };
 
+export const markNotificationsSeenByVideoIds = async (
+  userId,
+  videoIds = [],
+  seenTime = null
+) => {
+  if (!userId) return { affectedRows: 0 };
+
+  if (!Array.isArray(videoIds) || videoIds.length === 0) {
+    return { affectedRows: 0 };
+  }
+
+  // Normalize to integers and filter out invalid entries
+  const ids = videoIds
+    .map((v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : null;
+    })
+    .filter((v) => v !== null);
+
+  if (ids.length === 0) return { affectedRows: 0 };
+
+  // Use provided seenTime (numeric) or current unix timestamp
+  const timeVal =
+    Number(seenTime) && Number.isFinite(Number(seenTime))
+      ? String(Math.trunc(Number(seenTime)))
+      : String(Math.floor(Date.now() / 1000));
+
+  try {
+    const placeholders = ids.map(() => "?").join(",");
+    const sql = `UPDATE notifications SET seen = '1', time = ? WHERE recipient_id = ? AND video_id IN (${placeholders})`;
+    const params = [timeVal, userId, ...ids];
+    const [result] = await db.pool.execute(sql, params);
+    return result;
+  } catch (err) {
+    console.warn(
+      "users.service.markNotificationsSeenByVideoIds: DB update failed:",
+      err && err.message
+    );
+    return { affectedRows: 0 };
+  }
+};
+
 export default {
   findAll,
   register,

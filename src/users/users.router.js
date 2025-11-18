@@ -6,6 +6,7 @@ import {
   deleteMe,
   changePassword,
   getMyNotifications,
+  markMyNotificationsSeen,
 } from "./users.controller.js";
 import { validateRegistration } from "../middlewares/requestValidator.js";
 import passport from "passport";
@@ -30,6 +31,13 @@ router.get(
   "/me/notifications",
   passport.authenticate("jwt", { session: false }),
   getMyNotifications
+);
+
+// Mark notifications seen for given video ids
+router.post(
+  "/me/notifications",
+  passport.authenticate("jwt", { session: false }),
+  markMyNotificationsSeen
 );
 
 export default router;

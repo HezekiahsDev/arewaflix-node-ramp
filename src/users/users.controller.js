@@ -210,3 +210,46 @@ export const getMyNotifications = async (req, res, next) => {
     return next(err);
   }
 };
+
+export const markMyNotificationsSeen = async (req, res, next) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { seen_time, video_ids } = req.body || {};
+
+    if (!Array.isArray(video_ids)) {
+      return res.status(400).json({
+        success: false,
+        message: "video_ids must be an array of numeric video ids",
+      });
+    }
+
+    const seenTime = seen_time
+      ? Number(seen_time)
+      : Math.floor(Date.now() / 1000);
+    if (!Number.isFinite(seenTime)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "seen_time must be a valid unix timestamp",
+        });
+    }
+
+    const result = await usersService.markNotificationsSeenByVideoIds(
+      userId,
+      video_ids,
+      seenTime
+    );
+
+    return res.json({
+      success: true,
+      data: { affectedRows: result.affectedRows ?? 0 },
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
