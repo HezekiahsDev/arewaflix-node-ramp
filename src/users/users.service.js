@@ -320,9 +320,28 @@ export const updateUserProfile = async (userId, fields = {}) => {
   if (!userId) return { affectedRows: 0 };
 
   // Allowed fields to update
-  const allowed = ["first_name", "last_name", "language"];
+  const allowed = ["username", "language"];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
   if (keys.length === 0) return { affectedRows: 0 };
+
+  // If username is being changed, ensure it's not already taken by another user
+  if (fields.username) {
+    try {
+      const [rows] = await db.pool.execute(
+        "SELECT id FROM users WHERE username = ? AND id != ? LIMIT 1",
+        [fields.username, userId]
+      );
+      if (rows && rows[0]) {
+        return { conflict: "username" };
+      }
+    } catch (e) {
+      console.warn(
+        "users.service.updateUserProfile: username uniqueness check failed",
+        e && e.message
+      );
+      // Proceed — the update may still fail; we'll surface that to caller
+    }
+  }
 
   // Build SET clause with placeholders
   const setParts = keys.map((k) => `${k} = ?`).join(", ");

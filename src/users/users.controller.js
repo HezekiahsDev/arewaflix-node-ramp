@@ -268,42 +268,41 @@ export const updateMe = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    const { first_name, last_name, language } = req.body || {};
+    const body = req.body || {};
+
+    // Strictly enforce allowed updatable fields. If any other field is present, return an error.
+    const allowedFields = ["username", "language"];
+    const invalidFields = Object.keys(body).filter(
+      (k) => !allowedFields.includes(k)
+    );
+    if (invalidFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid fields provided: ${invalidFields.join(", ")}`,
+      });
+    }
+
+    const { username, language } = body;
 
     // Build payload only with provided keys
     const payload = {};
 
-    if (first_name !== undefined) {
-      if (typeof first_name !== "string") {
+    if (username !== undefined) {
+      if (typeof username !== "string") {
         return res
           .status(400)
-          .json({ success: false, message: "first_name must be a string" });
+          .json({ success: false, message: "username must be a string" });
       }
-      const trimmed = first_name.trim();
-      if (trimmed.length > 64) {
+      const trimmed = username.trim();
+      // follow same rules as auth (alphanumeric + underscore, 3-30 chars)
+      if (!/^[a-zA-Z0-9_]{3,30}$/.test(trimmed)) {
         return res.status(400).json({
           success: false,
-          message: "first_name must be at most 64 characters",
+          message:
+            "username must be 3-30 characters and may contain letters, numbers and underscore",
         });
       }
-      // Escape HTML to avoid storing markup
-      payload.first_name = escapeHtml(trimmed);
-    }
-
-    if (last_name !== undefined) {
-      if (typeof last_name !== "string") {
-        return res
-          .status(400)
-          .json({ success: false, message: "last_name must be a string" });
-      }
-      const trimmed = last_name.trim();
-      if (trimmed.length > 64) {
-        return res.status(400).json({
-          success: false,
-          message: "last_name must be at most 64 characters",
-        });
-      }
-      payload.last_name = escapeHtml(trimmed);
+      payload.username = trimmed;
     }
 
     if (language !== undefined) {
