@@ -218,10 +218,10 @@ export const markMyNotificationsSeen = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    const { seen_time, video_ids } = req.body || {};
+    const { seen_time, notification_ids } = req.body || {};
 
-    // Allow a single video id (number or string) or an array of ids.
-    let ids = video_ids;
+    // Allow a single notification id (number or string) or an array of ids.
+    let ids = notification_ids;
     if (ids === undefined || ids === null) ids = [];
     if (!Array.isArray(ids)) {
       // Accept a single numeric/string id and wrap into an array
@@ -230,7 +230,8 @@ export const markMyNotificationsSeen = async (req, res, next) => {
       } else {
         return res.status(400).json({
           success: false,
-          message: "video_ids must be an array or a single numeric video id",
+          message:
+            "notification_ids must be an array or a single numeric notification id",
         });
       }
     }
@@ -245,7 +246,7 @@ export const markMyNotificationsSeen = async (req, res, next) => {
       });
     }
 
-    const result = await usersService.markNotificationsSeenByVideoIds(
+    const result = await usersService.markNotificationsSeenByIds(
       userId,
       ids,
       seenTime

@@ -273,19 +273,19 @@ export const getNotificationsForUser = async (userId, limit = 100) => {
   }
 };
 
-export const markNotificationsSeenByVideoIds = async (
+export const markNotificationsSeenByIds = async (
   userId,
-  videoIds = [],
+  notificationIds = [],
   seenTime = null
 ) => {
   if (!userId) return { affectedRows: 0 };
 
-  if (!Array.isArray(videoIds) || videoIds.length === 0) {
+  if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
     return { affectedRows: 0 };
   }
 
   // Normalize to integers and filter out invalid entries
-  const ids = videoIds
+  const ids = notificationIds
     .map((v) => {
       const n = Number(v);
       return Number.isFinite(n) ? Math.trunc(n) : null;
@@ -302,13 +302,14 @@ export const markNotificationsSeenByVideoIds = async (
 
   try {
     const placeholders = ids.map(() => "?").join(",");
-    const sql = `UPDATE notifications SET seen = '1', time = ? WHERE recipient_id = ? AND video_id IN (${placeholders})`;
+    // Update by notification `id` rather than `video_id`.
+    const sql = `UPDATE notifications SET seen = '1', time = ? WHERE recipient_id = ? AND id IN (${placeholders})`;
     const params = [timeVal, userId, ...ids];
     const [result] = await db.pool.execute(sql, params);
     return result;
   } catch (err) {
     console.warn(
-      "users.service.markNotificationsSeenByVideoIds: DB update failed:",
+      "users.service.markNotificationsSeenByIds: DB update failed:",
       err && err.message
     );
     return { affectedRows: 0 };
@@ -323,4 +324,5 @@ export default {
   changePassword,
   deleteAndArchiveById,
   getNotificationsForUser,
+  markNotificationsSeenByIds,
 };
