@@ -5,6 +5,7 @@ import {
   getMe,
   deleteMe,
   changePassword,
+  getMyNotifications,
 } from "./users.controller.js";
 import { validateRegistration } from "../middlewares/requestValidator.js";
 import passport from "passport";
@@ -23,6 +24,12 @@ router.patch(
   "/me/password",
   passport.authenticate("jwt", { session: false }),
   changePassword
+);
+// Get authenticated user's notifications
+router.get(
+  "/me/notifications",
+  passport.authenticate("jwt", { session: false }),
+  getMyNotifications
 );
 
 export default router;

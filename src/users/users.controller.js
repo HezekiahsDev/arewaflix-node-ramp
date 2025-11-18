@@ -194,3 +194,17 @@ export const changePassword = async (req, res, next) => {
     return next(err);
   }
 };
+
+export const getMyNotifications = async (req, res, next) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const notifications = await usersService.getNotificationsForUser(userId);
+    return res.json({ success: true, data: notifications });
+  } catch (err) {
+    return next(err);
+  }
+};
