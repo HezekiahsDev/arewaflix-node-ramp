@@ -20,7 +20,7 @@ const router = express.Router();
 const requireAuth = passport.authenticate("jwt", { session: false });
 
 // POST /api/v1/videos (no auth required for manual testing)
-router.post("/", createVideo);
+// router.post("/", createVideo);
 
 // GET /api/v1/videos?limit=20&page=1
 router.get("/", getAllVideos);
