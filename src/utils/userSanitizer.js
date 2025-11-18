@@ -8,6 +8,7 @@ export function sanitizeUserForClient(user) {
     "display_name",
     "first_name",
     "last_name",
+    "language",
     "created_at",
     "updated_at",
     "is_active",

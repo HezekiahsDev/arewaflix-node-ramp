@@ -316,6 +316,39 @@ export const markNotificationsSeenByIds = async (
   }
 };
 
+export const updateUserProfile = async (userId, fields = {}) => {
+  if (!userId) return { affectedRows: 0 };
+
+  // Allowed fields to update
+  const allowed = ["first_name", "last_name", "language"];
+  const keys = Object.keys(fields).filter((k) => allowed.includes(k));
+  if (keys.length === 0) return { affectedRows: 0 };
+
+  // Build SET clause with placeholders
+  const setParts = keys.map((k) => `${k} = ?`).join(", ");
+  const params = keys.map((k) => fields[k]);
+  params.push(userId);
+
+  const sql = `UPDATE users SET ${setParts} WHERE id = ?`;
+  try {
+    const [result] = await db.pool.execute(sql, params);
+
+    // Return updated user
+    const [rows] = await db.pool.execute("SELECT * FROM users WHERE id = ?", [
+      userId,
+    ]);
+    const user = rows[0];
+    if (user) delete user.password;
+    return { result, user };
+  } catch (err) {
+    console.warn(
+      "users.service.updateUserProfile: DB update failed:",
+      err && err.message
+    );
+    return { affectedRows: 0 };
+  }
+};
+
 export default {
   findAll,
   register,

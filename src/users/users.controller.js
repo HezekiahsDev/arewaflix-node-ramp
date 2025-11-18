@@ -260,3 +260,91 @@ export const markMyNotificationsSeen = async (req, res, next) => {
     return next(err);
   }
 };
+
+export const updateMe = async (req, res, next) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { first_name, last_name, language } = req.body || {};
+
+    // Build payload only with provided keys
+    const payload = {};
+
+    if (first_name !== undefined) {
+      if (typeof first_name !== "string") {
+        return res
+          .status(400)
+          .json({ success: false, message: "first_name must be a string" });
+      }
+      const trimmed = first_name.trim();
+      if (trimmed.length > 64) {
+        return res.status(400).json({
+          success: false,
+          message: "first_name must be at most 64 characters",
+        });
+      }
+      // Escape HTML to avoid storing markup
+      payload.first_name = escapeHtml(trimmed);
+    }
+
+    if (last_name !== undefined) {
+      if (typeof last_name !== "string") {
+        return res
+          .status(400)
+          .json({ success: false, message: "last_name must be a string" });
+      }
+      const trimmed = last_name.trim();
+      if (trimmed.length > 64) {
+        return res.status(400).json({
+          success: false,
+          message: "last_name must be at most 64 characters",
+        });
+      }
+      payload.last_name = escapeHtml(trimmed);
+    }
+
+    if (language !== undefined) {
+      if (typeof language !== "string") {
+        return res
+          .status(400)
+          .json({ success: false, message: "language must be a string" });
+      }
+      const trimmed = language.trim();
+      // Allow empty string (to clear) or ISO-like codes (2-64 letters/dashes)
+      if (trimmed.length > 0 && !/^[a-zA-Z\-]{2,64}$/.test(trimmed)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "language must be an ISO-like code (2-64 letters/dashes) or empty",
+        });
+      }
+      payload.language = trimmed;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields provided to update",
+      });
+    }
+
+    const { result, user } = await usersService.updateUserProfile(
+      userId,
+      payload
+    );
+
+    const affected = (result && (result.affectedRows ?? 0)) || 0;
+    if (affected === 0) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to update profile" });
+    }
+
+    return res.json({ success: true, data: sanitizeUserForClient(user) });
+  } catch (err) {
+    return next(err);
+  }
+};
