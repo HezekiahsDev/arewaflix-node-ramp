@@ -10,7 +10,7 @@ APP_NAME="arewaflix-api"
 echo "🚀 Deploy: $APP_NAME"
 
 echo "📦 Installing dependencies (production)..."
-npm install --production || { echo "npm install failed"; exit 1; }
+pnpm install || { echo "npm install failed"; exit 1; }
 
 echo "🛑 Stopping PM2 process (if running)..."
 pm2 stop "$APP_NAME" 2>/dev/null || echo "No running process to stop."
