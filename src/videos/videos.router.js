@@ -10,6 +10,10 @@ import {
   likeVideo,
   getVideoReactions,
   getUserReaction,
+  reportVideo,
+  saveVideo,
+  getSavedVideos,
+  removeSaved,
   searchVideosController,
   getRandomVideosController,
 } from "./videos.controller.js";
@@ -51,6 +55,18 @@ router.get("/:id/reactions", getVideoReactions);
 
 // GET /api/v1/videos/:id/reaction (checks current user's reaction)
 router.get("/:id/reaction", requireAuth, getUserReaction);
+
+// POST /api/v1/videos/:id/report (report a video)
+router.post("/:id/report", requireAuth, reportVideo);
+
+// POST /api/v1/videos/:id/save (save a video)
+router.post("/:id/save", requireAuth, saveVideo);
+
+// GET /api/v1/videos/saved (list saved videos for current user)
+router.get("/saved", requireAuth, getSavedVideos);
+
+// DELETE /api/v1/videos/:id/save (remove saved video)
+router.delete("/:id/save", requireAuth, removeSaved);
 
 // Mount comments router
 router.use("/:id/comments", commentsRouter);

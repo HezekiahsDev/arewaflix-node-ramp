@@ -702,6 +702,126 @@ export const getRandomVideos = async ({
   }
 };
 
+export const createVideoReport = async ({ userId, videoId, text = "" } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+
+  // Verify video exists
+  const rows = await db.query("SELECT id FROM videos WHERE id = ?", [
+    parsedVideoId,
+  ]);
+  if (!rows?.length) throw new HttpError("Video not found.", 404);
+
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  const result = await db.query(
+    "INSERT INTO reports (video_id, article_id, ad_id, comment_id, reply_id, profile_id, user_id, text, time, seen, type) VALUES (?, 0, 0, 0, 0, 0, ?, ?, ?, 0, ?)",
+    [parsedVideoId, parsedUserId, text || "", String(timestamp), "video"]
+  );
+
+  const insertedId = result?.insertId;
+  if (!insertedId) throw new HttpError("Unable to create report.", 500);
+
+  const reportRows = await db.query("SELECT * FROM reports WHERE id = ?", [
+    insertedId,
+  ]);
+  return reportRows?.[0] || null;
+};
+
+export const createSavedVideo = async ({ userId, videoId } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+
+  // Verify video exists
+  const rows = await db.query("SELECT id FROM videos WHERE id = ?", [
+    parsedVideoId,
+  ]);
+  if (!rows?.length) throw new HttpError("Video not found.", 404);
+
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // Prevent duplicate saves by same user
+  const existing = await db.query(
+    "SELECT id FROM saved_videos WHERE user_id = ? AND video_id = ? LIMIT 1",
+    [parsedUserId, parsedVideoId]
+  );
+  if (existing?.length) return { alreadySaved: true, id: existing[0].id };
+
+  const result = await db.query(
+    "INSERT INTO saved_videos (user_id, video_id, time) VALUES (?, ?, ?)",
+    [parsedUserId, parsedVideoId, timestamp]
+  );
+  const insertedId = result?.insertId;
+  if (!insertedId) throw new HttpError("Unable to save video.", 500);
+
+  const savedRows = await db.query("SELECT * FROM saved_videos WHERE id = ?", [
+    insertedId,
+  ]);
+  return savedRows?.[0] || null;
+};
+
+export const getSavedVideosForUser = async ({ userId, page = 1, limit = 20 } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const safePage = Math.max(1, Number(page) || 1);
+  const offset = (safePage - 1) * safeLimit;
+
+  const totalRows = await db.query(
+    "SELECT COUNT(*) as total FROM saved_videos WHERE user_id = ?",
+    [parsedUserId]
+  );
+  const total = Number(totalRows?.[0]?.total || 0);
+
+  // Join with videos to return video details alongside save record
+  const rows = await db.query(
+    `SELECT sv.id as saved_id, sv.time as saved_time, v.*
+     FROM saved_videos sv
+     LEFT JOIN videos v ON sv.video_id = v.id
+     WHERE sv.user_id = ?
+     ORDER BY sv.id DESC
+     LIMIT ? OFFSET ?`,
+    [parsedUserId, safeLimit, offset]
+  );
+
+  return {
+    data: rows,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+    },
+  };
+};
+
+export const removeSavedVideo = async ({ userId, videoId } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+
+  const result = await db.query(
+    "DELETE FROM saved_videos WHERE user_id = ? AND video_id = ?",
+    [parsedUserId, parsedVideoId]
+  );
+  // mysql2 returns an object with affectedRows when using .query; normalize
+  const affected = result?.affectedRows ?? result?.[0]?.affectedRows ?? 0;
+  if (affected === 0) return { removed: false };
+  return { removed: true };
+};
+
 export default {
   findPaginated,
   createVideo,
@@ -712,4 +832,8 @@ export default {
   getUserReaction,
   searchVideos,
   getRandomVideos,
+  createVideoReport,
+  createSavedVideo,
+  getSavedVideosForUser,
+  removeSavedVideo,
 };

@@ -1,4 +1,9 @@
-import { postComment, getCommentsForVideo } from "./comments.service.js";
+import {
+  postComment,
+  getCommentsForVideo,
+  toggleCommentLike,
+  createCommentReport,
+} from "./comments.service.js";
 
 const extractUserId = (req) => {
   const authUser = req?.user;
@@ -40,4 +45,61 @@ export const fetchComments = async (req, res, next) => {
   }
 };
 
-export default { createComment, fetchComments };
+export const likeComment = async (req, res, next) => {
+  try {
+    const userId = extractUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const commentId = Number(req.params.commentId);
+    if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+      return res
+        .status(400)
+        .json({ error: "'commentId' parameter must be a positive integer." });
+    }
+
+    const action = req?.body?.action;
+    if (!action || !["like", "dislike", "remove"].includes(action)) {
+      return res.status(400).json({
+        error:
+          "'action' is required and must be one of: 'like', 'dislike', 'remove'.",
+      });
+    }
+
+    const videoId = Number(req.params.id) || 0;
+
+    const result = await toggleCommentLike({
+      userId,
+      commentId,
+      videoId,
+      action,
+    });
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const reportComment = async (req, res, next) => {
+  try {
+    const userId = extractUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const commentId = Number(req.params.commentId);
+    if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+      return res
+        .status(400)
+        .json({ error: "'commentId' parameter must be a positive integer." });
+    }
+
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+
+    const created = await createCommentReport({ userId, commentId, text });
+    res.status(201).json({ data: created });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export default { createComment, fetchComments, likeComment, reportComment };
