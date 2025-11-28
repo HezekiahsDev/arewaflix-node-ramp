@@ -19,7 +19,7 @@ echo "🗑️ Deleting PM2 process (if exists)..."
 pm2 delete "$APP_NAME" 2>/dev/null || echo "No process to delete."
 
 echo "♻️ Starting app with PM2 (npm start)..."
-pm2 start npm --name "$APP_NAME" -- start
+pm2 start pnpm --name "$APP_NAME" -- start
 
 echo "💾 Saving PM2 process list..."
 pm2 save
