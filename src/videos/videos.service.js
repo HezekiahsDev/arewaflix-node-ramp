@@ -702,9 +702,14 @@ export const getRandomVideos = async ({
   }
 };
 
-export const createVideoReport = async ({ userId, videoId, text = "" } = {}) => {
+export const createVideoReport = async ({
+  userId,
+  videoId,
+  text = "",
+} = {}) => {
   const parsedUserId = normalizeUserId(userId);
-  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
 
   const parsedVideoId = Number(videoId);
   if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
@@ -734,7 +739,8 @@ export const createVideoReport = async ({ userId, videoId, text = "" } = {}) => 
 
 export const createSavedVideo = async ({ userId, videoId } = {}) => {
   const parsedUserId = normalizeUserId(userId);
-  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
 
   const parsedVideoId = Number(videoId);
   if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
@@ -768,9 +774,14 @@ export const createSavedVideo = async ({ userId, videoId } = {}) => {
   return savedRows?.[0] || null;
 };
 
-export const getSavedVideosForUser = async ({ userId, page = 1, limit = 20 } = {}) => {
+export const getSavedVideosForUser = async ({
+  userId,
+  page = 1,
+  limit = 20,
+} = {}) => {
   const parsedUserId = normalizeUserId(userId);
-  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
 
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   const safePage = Math.max(1, Number(page) || 1);
@@ -806,7 +817,8 @@ export const getSavedVideosForUser = async ({ userId, page = 1, limit = 20 } = {
 
 export const removeSavedVideo = async ({ userId, videoId } = {}) => {
   const parsedUserId = normalizeUserId(userId);
-  if (!parsedUserId) throw new HttpError("User authentication is required.", 401);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
 
   const parsedVideoId = Number(videoId);
   if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)

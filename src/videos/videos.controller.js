@@ -514,11 +514,9 @@ export const reportVideo = async (req, res, next) => {
 
     const videoId = parseVideoId(req?.params?.id);
     if (!videoId) {
-      return res
-        .status(400)
-        .json({
-          error: "'id' parameter is required and must be a positive integer.",
-        });
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
     }
 
     const text =
@@ -539,7 +537,11 @@ export const saveVideo = async (req, res, next) => {
 
     const videoId = parseVideoId(req?.params?.id);
     if (!videoId)
-      return res.status(400).json({ error: "'id' parameter is required and must be a positive integer." });
+      return res
+        .status(400)
+        .json({
+          error: "'id' parameter is required and must be a positive integer.",
+        });
 
     const created = await createSavedVideo({ userId, videoId });
     res.status(201).json({ data: created });
@@ -551,7 +553,8 @@ export const saveVideo = async (req, res, next) => {
 export const getSavedVideos = async (req, res, next) => {
   try {
     const userId = getAuthenticatedUserId(req);
-    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
 
     const page = req?.query?.page;
     const limit = req?.query?.limit;
@@ -565,13 +568,20 @@ export const getSavedVideos = async (req, res, next) => {
 export const removeSaved = async (req, res, next) => {
   try {
     const userId = getAuthenticatedUserId(req);
-    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
 
     const videoId = parseVideoId(req?.params?.id);
-    if (!videoId) return res.status(400).json({ error: "'id' parameter is required and must be a positive integer." });
+    if (!videoId)
+      return res
+        .status(400)
+        .json({
+          error: "'id' parameter is required and must be a positive integer.",
+        });
 
     const result = await removeSavedVideo({ userId, videoId });
-    if (result.removed) return res.status(200).json({ message: "Saved video removed." });
+    if (result.removed)
+      return res.status(200).json({ message: "Saved video removed." });
     return res.status(200).json({ message: "No saved video to remove." });
   } catch (err) {
     next(err);
