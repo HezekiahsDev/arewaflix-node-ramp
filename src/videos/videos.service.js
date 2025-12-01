@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import db from "../models/db.js";
 import HttpError from "../utils/httpError.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Fetch paginated videos from the database with safe defaults and a graceful fallback
 export const findPaginated = async ({
@@ -198,7 +199,7 @@ const normalizeUserId = (value) => {
 
 const insertVideoRecord = async (payload = {}, { isShort = false } = {}) => {
   const userId = parseRequiredNumber(payload.user_id, "user_id");
-  const title = sanitizeString(payload.title).trim();
+  const title = escapeHtml(sanitizeString(payload.title).trim());
   if (!title) {
     throw new HttpError("title is required", 400);
   }
@@ -223,8 +224,8 @@ const insertVideoRecord = async (payload = {}, { isShort = false } = {}) => {
     short_id: shortId,
     user_id: userId,
     title,
-    description: sanitizeString(payload.description, ""),
-    thumbnail: sanitizeString(payload.thumbnail, DEFAULT_THUMBNAIL),
+    description: escapeHtml(sanitizeString(payload.description, "")),
+    thumbnail: escapeHtml(sanitizeString(payload.thumbnail, DEFAULT_THUMBNAIL)),
     time: timeValue,
     publication_date: publicationDate,
     time_date: sanitizeString(payload.time_date, now.toISOString()),
@@ -258,7 +259,7 @@ const insertVideoRecord = async (payload = {}, { isShort = false } = {}) => {
   };
 
   for (const [field, fallback] of Object.entries(stringDefaults)) {
-    insertData[field] = sanitizeString(payload[field], fallback);
+    insertData[field] = escapeHtml(sanitizeString(payload[field], fallback));
   }
 
   const numericDefaults = {

@@ -175,6 +175,22 @@ const buildCreatePayload = (req, res, { isShort, userId }) => {
 
   assignOptionalStrings(body, payload);
 
+  // Validate lengths for common string fields (defensive limits)
+  if (payload.title && String(payload.title).length > 300) {
+    res.status(400).json({ error: "'title' must be at most 300 characters." });
+    return null;
+  }
+  if (payload.description && String(payload.description).length > 5000) {
+    res
+      .status(400)
+      .json({ error: "'description' must be at most 5000 characters." });
+    return null;
+  }
+  if (payload.tags && String(payload.tags).length > 500) {
+    res.status(400).json({ error: "'tags' must be at most 500 characters." });
+    return null;
+  }
+
   const numericError = assignOptionalNumbers(
     body,
     payload,
@@ -513,21 +529,28 @@ export const reportVideo = async (req, res, next) => {
     if (!req.body || typeof req.body !== "object") {
       return res
         .status(400)
-        .json({ error: "Request body must be an object with an optional 'text' field." });
+        .json({
+          error:
+            "Request body must be an object with an optional 'text' field.",
+        });
     }
     const allowed = ["text"];
     const extra = Object.keys(req.body).filter((k) => !allowed.includes(k));
     if (extra.length > 0) {
       return res
         .status(400)
-        .json({ error: "Only the 'text' field is allowed in the request body." });
+        .json({
+          error: "Only the 'text' field is allowed in the request body.",
+        });
     }
 
     let text = "";
     if (typeof req.body.text === "string") {
       text = req.body.text.trim();
       if (text.length > 1000) {
-        return res.status(400).json({ error: "'text' must be at most 1000 characters." });
+        return res
+          .status(400)
+          .json({ error: "'text' must be at most 1000 characters." });
       }
       text = escapeHtml(text);
     }
