@@ -13,6 +13,7 @@ import {
   getSavedVideosForUser,
   removeSavedVideo,
 } from "./videos.service.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
 // Response shape: { data: Array<VideoRow>, pagination: { page, limit, total, totalPages } }
@@ -290,22 +291,12 @@ export const getShortsVideos = async (req, res, next) => {
 };
 
 export const createVideo = async (req, res, next) => {
-  try {
-    let userId = getAuthenticatedUserId(req);
-    // If not authenticated, allow client to provide user_id (or default to 0 for anonymous)
-    if (!userId) {
-      const bodyUserId = parseOptionalUserId(req?.body?.user_id);
-      userId = bodyUserId || 0;
-    }
-
-    const payload = buildCreatePayload(req, res, { isShort: false, userId });
-    if (!payload) return;
-
-    const created = await createVideoRecord(payload);
-    res.status(201).json({ data: created });
-  } catch (err) {
-    next(err);
-  }
+  // Create video endpoint disabled.
+  // Original implementation commented out to prevent unauthenticated clients
+  // from supplying `user_id` and impersonating other users.
+  // To re-enable, restore the implementation and ensure authentication
+  // is required (do not accept client-supplied `user_id`).
+  return res.status(403).json({ error: "Create video endpoint is disabled." });
 };
 
 export const createShort = async (req, res, next) => {
@@ -518,9 +509,28 @@ export const reportVideo = async (req, res, next) => {
         error: "'id' parameter is required and must be a positive integer.",
       });
     }
+    // Validate body: only allow `text` field
+    if (!req.body || typeof req.body !== "object") {
+      return res
+        .status(400)
+        .json({ error: "Request body must be an object with an optional 'text' field." });
+    }
+    const allowed = ["text"];
+    const extra = Object.keys(req.body).filter((k) => !allowed.includes(k));
+    if (extra.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "Only the 'text' field is allowed in the request body." });
+    }
 
-    const text =
-      typeof req?.body?.text === "string" ? req.body.text.trim() : "";
+    let text = "";
+    if (typeof req.body.text === "string") {
+      text = req.body.text.trim();
+      if (text.length > 1000) {
+        return res.status(400).json({ error: "'text' must be at most 1000 characters." });
+      }
+      text = escapeHtml(text);
+    }
 
     const created = await createVideoReport({ userId, videoId, text });
     res.status(201).json({ data: created });
@@ -537,11 +547,9 @@ export const saveVideo = async (req, res, next) => {
 
     const videoId = parseVideoId(req?.params?.id);
     if (!videoId)
-      return res
-        .status(400)
-        .json({
-          error: "'id' parameter is required and must be a positive integer.",
-        });
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
 
     const created = await createSavedVideo({ userId, videoId });
     res.status(201).json({ data: created });
@@ -573,11 +581,9 @@ export const removeSaved = async (req, res, next) => {
 
     const videoId = parseVideoId(req?.params?.id);
     if (!videoId)
-      return res
-        .status(400)
-        .json({
-          error: "'id' parameter is required and must be a positive integer.",
-        });
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
 
     const result = await removeSavedVideo({ userId, videoId });
     if (result.removed)

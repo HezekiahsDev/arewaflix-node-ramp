@@ -4,6 +4,7 @@ import {
   toggleCommentLike,
   createCommentReport,
 } from "./comments.service.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const extractUserId = (req) => {
   const authUser = req?.user;
@@ -93,7 +94,29 @@ export const reportComment = async (req, res, next) => {
         .json({ error: "'commentId' parameter must be a positive integer." });
     }
 
-    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    // Only allow a single `text` field in the body to avoid unexpected input
+    if (!req.body || typeof req.body !== "object") {
+      return res
+        .status(400)
+        .json({ error: "Request body must be an object with an optional 'text' field." });
+    }
+    const allowed = ["text"];
+    const extra = Object.keys(req.body).filter((k) => !allowed.includes(k));
+    if (extra.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "Only the 'text' field is allowed in the request body." });
+    }
+
+    let text = "";
+    if (typeof req.body.text === "string") {
+      text = req.body.text.trim();
+      if (text.length > 1000) {
+        return res.status(400).json({ error: "'text' must be at most 1000 characters." });
+      }
+      // Escape HTML to reduce XSS risk (stored content will be safe for HTML contexts)
+      text = escapeHtml(text);
+    }
 
     const created = await createCommentReport({ userId, commentId, text });
     res.status(201).json({ data: created });
