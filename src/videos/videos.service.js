@@ -775,6 +775,24 @@ export const createSavedVideo = async ({ userId, videoId } = {}) => {
   return savedRows?.[0] || null;
 };
 
+export const isVideoSaved = async ({ userId, videoId } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
+
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+
+  const rows = await db.query(
+    "SELECT id FROM saved_videos WHERE user_id = ? AND video_id = ? LIMIT 1",
+    [parsedUserId, parsedVideoId]
+  );
+
+  if (rows?.length) return { saved: true, id: rows[0].id };
+  return { saved: false };
+};
+
 export const getSavedVideosForUser = async ({
   userId,
   page = 1,

@@ -12,6 +12,7 @@ import {
   createSavedVideo,
   getSavedVideosForUser,
   removeSavedVideo,
+  isVideoSaved,
 } from "./videos.service.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 
@@ -387,6 +388,29 @@ export const likeVideo = async (req, res, next) => {
 
     const result = await toggleLike({ userId, videoId, action });
     res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSavedStatus = async (req, res, next) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const videoId = parseVideoId(req?.params?.id);
+    if (!videoId) {
+      return res.status(400).json({
+        error: "'id' parameter is required and must be a positive integer.",
+      });
+    }
+
+    const result = await isVideoSaved({ userId, videoId });
+    if (result && result.saved) {
+      return res.status(200).json({ data: { saved: true, id: result.id } });
+    }
+    return res.status(200).json({ data: { saved: false } });
   } catch (err) {
     next(err);
   }

@@ -12,6 +12,7 @@ import {
   getUserReaction,
   reportVideo,
   saveVideo,
+  getSavedStatus,
   getSavedVideos,
   removeSaved,
   searchVideosController,
@@ -61,6 +62,9 @@ router.post("/:id/report", requireAuth, reportVideo);
 
 // POST /api/v1/videos/:id/save (save a video)
 router.post("/:id/save", requireAuth, saveVideo);
+
+// GET /api/v1/videos/:id/save (check if current user saved this video)
+router.get("/:id/save", requireAuth, getSavedStatus);
 
 // GET /api/v1/videos/saved (list saved videos for current user)
 router.get("/saved", requireAuth, getSavedVideos);
