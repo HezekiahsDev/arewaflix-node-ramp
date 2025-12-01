@@ -527,21 +527,16 @@ export const reportVideo = async (req, res, next) => {
     }
     // Validate body: only allow `text` field
     if (!req.body || typeof req.body !== "object") {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Request body must be an object with an optional 'text' field.",
-        });
+      return res.status(400).json({
+        error: "Request body must be an object with an optional 'text' field.",
+      });
     }
     const allowed = ["text"];
     const extra = Object.keys(req.body).filter((k) => !allowed.includes(k));
     if (extra.length > 0) {
-      return res
-        .status(400)
-        .json({
-          error: "Only the 'text' field is allowed in the request body.",
-        });
+      return res.status(400).json({
+        error: "Only the 'text' field is allowed in the request body.",
+      });
     }
 
     let text = "";
@@ -564,6 +559,16 @@ export const reportVideo = async (req, res, next) => {
 
 export const saveVideo = async (req, res, next) => {
   try {
+    // This endpoint should not accept a request body.
+    if (
+      req.body &&
+      typeof req.body === "object" &&
+      Object.keys(req.body).length > 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Request body must be empty for this endpoint." });
+    }
     const userId = getAuthenticatedUserId(req);
     if (!userId)
       return res.status(401).json({ error: "Authentication required." });
