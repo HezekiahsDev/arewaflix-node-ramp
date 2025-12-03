@@ -2,6 +2,7 @@ import {
   postComment,
   getCommentsForVideo,
   toggleCommentLike,
+  getCommentReaction as getCommentReactionFromService,
   createCommentReport,
 } from "./comments.service.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
@@ -81,6 +82,26 @@ export const likeComment = async (req, res, next) => {
   }
 };
 
+export const getCommentReaction = async (req, res, next) => {
+  try {
+    const userId = extractUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const commentId = Number(req.params.commentId);
+    if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+      return res
+        .status(400)
+        .json({ error: "'commentId' parameter must be a positive integer." });
+    }
+
+    const reaction = await getCommentReactionFromService({ userId, commentId });
+    res.status(200).json({ data: { reaction } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const reportComment = async (req, res, next) => {
   try {
     const userId = extractUserId(req);
@@ -96,21 +117,16 @@ export const reportComment = async (req, res, next) => {
 
     // Only allow a single `text` field in the body to avoid unexpected input
     if (!req.body || typeof req.body !== "object") {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Request body must be an object with an optional 'text' field.",
-        });
+      return res.status(400).json({
+        error: "Request body must be an object with an optional 'text' field.",
+      });
     }
     const allowed = ["text"];
     const extra = Object.keys(req.body).filter((k) => !allowed.includes(k));
     if (extra.length > 0) {
-      return res
-        .status(400)
-        .json({
-          error: "Only the 'text' field is allowed in the request body.",
-        });
+      return res.status(400).json({
+        error: "Only the 'text' field is allowed in the request body.",
+      });
     }
 
     let text = "";
@@ -132,4 +148,10 @@ export const reportComment = async (req, res, next) => {
   }
 };
 
-export default { createComment, fetchComments, likeComment, reportComment };
+export default {
+  createComment,
+  fetchComments,
+  likeComment,
+  reportComment,
+  getCommentReaction,
+};

@@ -253,6 +253,28 @@ export const toggleCommentLike = async ({
   }
 };
 
+export const getCommentReaction = async ({ userId, commentId }) => {
+  const uid = normalizeUserId(userId);
+  if (!uid) throw new HttpError("User authentication is required.", 401);
+
+  const cid = Number(commentId);
+  if (!Number.isSafeInteger(cid) || cid <= 0)
+    throw new HttpError("'commentId' must be a positive integer.", 400);
+
+  // Fetch the most recent reaction by this user for this comment
+  const rows = await db.query(
+    "SELECT type FROM comments_likes WHERE user_id = ? AND comment_id = ? ORDER BY id DESC LIMIT 1",
+    [uid, cid]
+  );
+
+  if (!rows?.length) return null;
+
+  const t = Number(rows[0].type);
+  if (t === 1) return "like";
+  if (t === 2) return "dislike";
+  return null;
+};
+
 // (default export extended at end of file)
 
 export const createCommentReport = async ({ userId, commentId, text = "" }) => {
