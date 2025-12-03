@@ -7,6 +7,7 @@ import authRouter from "./auth/auth.router.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import passportJwt from "./auth/strategies/jwt.strategy.js";
 import sanitizeInput from "./middlewares/sanitizeInput.js";
+import rejectScriptLikeInput from "./middlewares/rejectScriptLikeInput.js";
 import rateLimiter from "./middlewares/rateLimiter.js";
 
 const app = express();
@@ -33,6 +34,8 @@ app.use(cors());
 // Body parsing then sanitization
 app.use(express.json());
 app.use(sanitizeInput);
+// Reject obvious script-like payloads early (defense-in-depth)
+app.use(rejectScriptLikeInput);
 app.use(passport.initialize());
 passport.use(passportJwt);
 

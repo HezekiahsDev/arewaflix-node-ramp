@@ -41,14 +41,14 @@ class AuthController {
       if (!identifier) {
         return res.status(400).json({
           success: false,
-          message: "Valid username or email is required",
+          message: "Invalid input",
         });
       }
 
       if (!isValidPassword(rawPassword)) {
         return res.status(400).json({
           success: false,
-          message: "Password must be 8-128 characters",
+          message: "Invalid input",
         });
       }
 
@@ -71,14 +71,14 @@ class AuthController {
       if (!rawEmail || !isValidEmail(rawEmail) || rawEmail.length > 254) {
         return res
           .status(400)
-          .json({ success: false, message: "Valid email is required" });
+          .json({ success: false, message: "Invalid input" });
       }
 
       const result = await authService.requestPasswordReset(rawEmail);
       if (result && result.notFound) {
         return res
           .status(404)
-          .json({ success: false, message: "Email not found" });
+          .json({ success: false, message: "Invalid credentials" });
       }
 
       // Do not include the OTP in the response. Email sending is handled in service.
@@ -99,12 +99,10 @@ class AuthController {
       if (!rawEmail || !isValidEmail(rawEmail)) {
         return res
           .status(400)
-          .json({ success: false, message: "Valid email is required" });
+          .json({ success: false, message: "Invalid input" });
       }
       if (!rawOtp || !otpRegex.test(rawOtp)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "OTP must be a 6-digit code" });
+        return res.status(400).json({ success: false, message: "Invalid OTP" });
       }
 
       const result = await authService.verifyPasswordOtp(rawEmail, rawOtp);
@@ -112,7 +110,7 @@ class AuthController {
       if (result && result.notFound) {
         return res
           .status(404)
-          .json({ success: false, message: "Email not found" });
+          .json({ success: false, message: "Invalid credentials" });
       }
       if (result && result.expired) {
         return res.status(400).json({ success: false, message: "OTP expired" });
@@ -143,20 +141,16 @@ class AuthController {
       if (!rawEmail || !isValidEmail(rawEmail)) {
         return res
           .status(400)
-          .json({ success: false, message: "Valid email is required" });
+          .json({ success: false, message: "Invalid input" });
       }
       if (!rawOtp || !otpRegex.test(rawOtp)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "OTP must be a 6-digit code" });
+        return res.status(400).json({ success: false, message: "Invalid OTP" });
       }
       if (!isValidPassword(rawPassword)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Password must be 8-128 characters",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Password must be 8-24 characters",
+        });
       }
 
       const result = await authService.resetPassword(
@@ -174,20 +168,16 @@ class AuthController {
         return res.status(400).json({ success: false, message: "OTP expired" });
       }
       if (result && result.invalid) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Invalid OTP or too many attempts",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid OTP or too many attempts",
+        });
       }
       if (result && result.invalidPassword) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Password must be 8-128 characters",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Password must be 8-128 characters",
+        });
       }
 
       return res.json({ success: true, message: "Password reset successful" });

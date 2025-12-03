@@ -15,7 +15,8 @@ router.get(
     res.json({
       message: "You made it to the secure route",
       user: req.user,
-      token: req.query.secret_token,
+      // Do not echo client-supplied secret tokens back in responses
+      token_present: Boolean(req.query && req.query.secret_token),
     });
   }
 );

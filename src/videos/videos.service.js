@@ -83,14 +83,14 @@ export const findPaginated = async ({
         break;
     }
 
-    // Fetch page of videos (return ALL DB columns)
+    // Fetch page of videos (return ALL DB columns). Use parameterized LIMIT/OFFSET.
     const rows = await db.query(
       `SELECT *
        FROM videos
        ${whereSql}
        ${orderBySql}
-       LIMIT ${safeLimit} OFFSET ${offset}`,
-      whereValues
+       LIMIT ? OFFSET ?`,
+      [...whereValues, safeLimit, offset]
     );
 
     return {
@@ -564,8 +564,15 @@ export const searchVideos = async ({
     const whereValues = [];
 
     // Search in title, description, and tags using LIKE
-    const searchPattern = `%${searchTerm}%`;
-    whereClauses.push("(title LIKE ? OR description LIKE ? OR tags LIKE ?)");
+    // Escape LIKE wildcards and cap length to avoid excessive patterns
+    const MAX_SEARCH_TERM_LENGTH = 200;
+    const truncateTerm = String(searchTerm).slice(0, MAX_SEARCH_TERM_LENGTH);
+    const escapeLike = (s) => String(s).replace(/([\\%_])/g, "\\$1");
+    const escaped = escapeLike(truncateTerm);
+    const searchPattern = `%${escaped}%`;
+    whereClauses.push(
+      "(title LIKE ? ESCAPE '\\\\' OR description LIKE ? ESCAPE '\\\\' OR tags LIKE ? ESCAPE '\\\\')"
+    );
     whereValues.push(searchPattern, searchPattern, searchPattern);
 
     if (approved !== undefined) {
@@ -599,8 +606,8 @@ export const searchVideos = async ({
        FROM videos
        ${whereSql}
        ORDER BY views DESC, publication_date DESC, time DESC
-       LIMIT ${safeLimit} OFFSET ${offset}`,
-      whereValues
+       LIMIT ? OFFSET ?`,
+      [...whereValues, safeLimit, offset]
     );
 
     return {
@@ -667,14 +674,14 @@ export const getRandomVideos = async ({
     if (safePage > totalPages) safePage = totalPages;
     offset = (safePage - 1) * safeLimit;
 
-    // Fetch random videos with pagination
+    // Fetch random videos with pagination (parameterized LIMIT/OFFSET)
     const rows = await db.query(
       `SELECT *
        FROM videos
        ${whereSql}
        ORDER BY RAND()
-       LIMIT ${safeLimit} OFFSET ${offset}`,
-      whereValues
+       LIMIT ? OFFSET ?`,
+      [...whereValues, safeLimit, offset]
     );
 
     return {

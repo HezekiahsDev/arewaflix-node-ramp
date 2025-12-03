@@ -1,5 +1,6 @@
 import db from "../models/db.js";
 import HttpError from "../utils/httpError.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const normalizeUserId = (value) => {
   const parsed = Number(value);
@@ -24,9 +25,11 @@ export const postComment = async ({ userId, videoId, text }) => {
   const rows = await db.query("SELECT id FROM videos WHERE id = ?", [vid]);
   if (!rows?.length) throw new HttpError("Video not found.", 404);
 
+  // Escape HTML before storing to reduce XSS risk when content is rendered
+  const safeText = escapeHtml(bodyText);
   const result = await db.query(
     "INSERT INTO comments (user_id, video_id, text, time) VALUES (?, ?, ?, ?)",
-    [uid, vid, bodyText, timestamp]
+    [uid, vid, safeText, timestamp]
   );
 
   const insertedId = result?.insertId;
