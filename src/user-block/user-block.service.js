@@ -26,3 +26,9 @@ export const getBlockedUsers = async (userId) => {
   );
   return rows;
 };
+
+export default {
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+};
