@@ -1,11 +1,27 @@
 import db from "../models/db.js";
 import HttpError from "../utils/httpError.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { getBlockedUsers } from "../user-block/user-block.service.js";
 
 const normalizeUserId = (value) => {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) return 0;
   return parsed;
+};
+
+const fetchBlockedIds = async (blockerId) => {
+  const uid = normalizeUserId(blockerId);
+  if (!uid) return [];
+  try {
+    const rows = await getBlockedUsers(uid);
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    return rows
+      .map((r) => Number(r.blocked_id || r.blockedId || r.id || 0))
+      .filter((n) => Number.isSafeInteger(n) && n > 0);
+  } catch (err) {
+    // If fetching blocked list fails, treat as no blocks (fail open)
+    return [];
+  }
 };
 
 export const postComment = async ({ userId, videoId, text }) => {
@@ -58,24 +74,23 @@ export const getCommentsForVideo = async ({
 
   const uid = normalizeUserId(requestingUserId);
 
-  // Count total comments excluding blocked users
+  // Count total comments and fetch comments, excluding blocked users when present
+  const blockedIds = uid ? await fetchBlockedIds(uid) : [];
+
+  // Build base count query
   let totalQuery =
     "SELECT COUNT(*) as total FROM comments c WHERE c.video_id = ?";
-  let totalParams = [vid];
-
-  if (uid) {
-    totalQuery = `SELECT COUNT(*) as total FROM comments c 
-      WHERE c.video_id = ? 
-      AND c.user_id NOT IN (
-        SELECT blocked_id FROM user_blocks WHERE blocker_id = ?
-      )`;
-    totalParams = [vid, uid];
+  const totalParams = [vid];
+  if (blockedIds.length) {
+    const placeholders = blockedIds.map(() => "?").join(", ");
+    totalQuery += ` AND c.user_id NOT IN (${placeholders})`;
+    totalParams.push(...blockedIds);
   }
 
   const totalRows = await db.query(totalQuery, totalParams);
   const total = Number(totalRows?.[0]?.total || 0);
 
-  // Fetch comments excluding blocked users
+  // Build comments fetch query
   let commentsQuery = `SELECT 
       c.*, 
       u.username,
@@ -84,14 +99,11 @@ export const getCommentsForVideo = async ({
     FROM comments c
     LEFT JOIN users u ON c.user_id = u.id
     WHERE c.video_id = ?`;
-  let commentsParams = [vid];
-
-  if (uid) {
-    commentsQuery += ` 
-      AND c.user_id NOT IN (
-        SELECT blocked_id FROM user_blocks WHERE blocker_id = ?
-      )`;
-    commentsParams.push(uid);
+  const commentsParams = [vid];
+  if (blockedIds.length) {
+    const placeholders = blockedIds.map(() => "?").join(", ");
+    commentsQuery += ` AND c.user_id NOT IN (${placeholders})`;
+    commentsParams.push(...blockedIds);
   }
 
   commentsQuery += ` ORDER BY c.time DESC LIMIT ? OFFSET ?`;
