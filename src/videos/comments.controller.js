@@ -40,7 +40,7 @@ export const fetchComments = async (req, res, next) => {
   try {
     const videoId = Number(req.params.id);
     const { page, limit } = req.query;
-    const requestingUserId = req.user?.id || null;
+    const requestingUserId = extractUserId(req);
     const result = await getCommentsForVideo({
       videoId,
       page,
