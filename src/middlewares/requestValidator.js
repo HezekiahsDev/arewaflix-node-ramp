@@ -70,3 +70,27 @@ export const validateRegistration = async (req, res, next) => {
     next(error);
   }
 };
+
+export const validateUserId = async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId || isNaN(userId) || parseInt(userId) <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid user ID." });
+  }
+
+  try {
+    const [rows] = await db.pool.execute("SELECT id FROM users WHERE id = ?", [
+      parseInt(userId),
+    ]);
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};

@@ -18,7 +18,7 @@ function isValidUsername(v) {
 }
 
 function isValidPassword(v) {
-  return typeof v === "string" && v.length >= 8 && v.length <= 128;
+  return typeof v === "string" && v.length >= 8 && v.length <= 16;
 }
 
 class AuthController {

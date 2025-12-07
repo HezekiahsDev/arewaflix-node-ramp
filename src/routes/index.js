@@ -2,11 +2,13 @@ import express from "express";
 import passport from "passport";
 import { router as userRouter } from "../users/users.module.js";
 import { router as videosRouter } from "../videos/videos.module.js";
+import { router as userBlockRouter } from "../user-block/user-block.module.js";
 
 const router = express.Router();
 
 router.use("/users", userRouter);
 router.use("/videos", videosRouter);
+router.use("/user-block", userBlockRouter);
 
 router.get(
   "/profile",
