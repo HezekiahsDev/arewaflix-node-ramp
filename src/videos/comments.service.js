@@ -46,6 +46,7 @@ export const getCommentsForVideo = async ({
   videoId,
   page = 1,
   limit = 20,
+  userId = null,
 }) => {
   const vid = Number(videoId);
   if (!Number.isSafeInteger(vid) || vid <= 0)
@@ -55,25 +56,34 @@ export const getCommentsForVideo = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const offset = (safePage - 1) * safeLimit;
 
-  const totalRows = await db.query(
-    "SELECT COUNT(*) as total FROM comments WHERE video_id = ?",
-    [vid]
-  );
-  const total = Number(totalRows?.[0]?.total || 0);
-
-  const rows = await db.query(
-    `SELECT 
+  let totalQuery = "SELECT COUNT(*) as total FROM comments WHERE video_id = ?";
+  let totalParams = [vid];
+  let commentQuery = `SELECT 
       c.*, 
       u.username,
       u.avatar,
       u.verified
     FROM comments c
     LEFT JOIN users u ON c.user_id = u.id
-    WHERE c.video_id = ?
-    ORDER BY c.time DESC
-    LIMIT ? OFFSET ?`,
-    [vid, safeLimit, offset]
-  );
+    WHERE c.video_id = ?`;
+  let commentParams = [vid];
+
+  if (userId) {
+    totalQuery +=
+      " AND c.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)";
+    totalParams.push(userId);
+    commentQuery +=
+      " AND c.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)";
+    commentParams.push(userId);
+  }
+
+  commentQuery += " ORDER BY c.time DESC LIMIT ? OFFSET ?";
+  commentParams.push(safeLimit, offset);
+
+  const totalRows = await db.query(totalQuery, totalParams);
+  const total = Number(totalRows?.[0]?.total || 0);
+
+  const rows = await db.query(commentQuery, commentParams);
 
   return {
     data: rows,
