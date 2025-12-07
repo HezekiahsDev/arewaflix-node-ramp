@@ -13,6 +13,7 @@ export const findPaginated = async ({
   sort = "latest", // latest | oldest | most_viewed | popular | top_rated
   is_short,
   shortsOnly = false,
+  requestingUserId = null,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   let safePage = Math.max(1, Number(page) || 1);
@@ -39,6 +40,14 @@ export const findPaginated = async ({
     } else if (is_short !== undefined) {
       whereClauses.push("is_short = ?");
       whereValues.push(Number(is_short));
+    }
+    // Exclude videos from users blocked by the requesting user
+    const uid = Number(requestingUserId);
+    if (Number.isSafeInteger(uid) && uid > 0) {
+      whereClauses.push(
+        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
+      );
+      whereValues.push(uid);
     }
     const whereSql = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
@@ -539,6 +548,7 @@ export const searchVideos = async ({
   approved,
   privacy,
   featured,
+  requestingUserId = null,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   let safePage = Math.max(1, Number(page) || 1);
@@ -586,6 +596,15 @@ export const searchVideos = async ({
     if (privacy !== undefined) {
       whereClauses.push("privacy = ?");
       whereValues.push(Number(privacy));
+    }
+
+    // Exclude videos from users blocked by the requesting user
+    const uid = Number(requestingUserId);
+    if (Number.isSafeInteger(uid) && uid > 0) {
+      whereClauses.push(
+        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
+      );
+      whereValues.push(uid);
     }
 
     const whereSql = `WHERE ${whereClauses.join(" AND ")}`;
@@ -641,6 +660,7 @@ export const getRandomVideos = async ({
   limit = 20,
   approved,
   privacy,
+  requestingUserId = null,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   let safePage = Math.max(1, Number(page) || 1);
@@ -658,6 +678,15 @@ export const getRandomVideos = async ({
     if (privacy !== undefined) {
       whereClauses.push("privacy = ?");
       whereValues.push(Number(privacy));
+    }
+
+    // Exclude videos from users blocked by the requesting user
+    const uid = Number(requestingUserId);
+    if (Number.isSafeInteger(uid) && uid > 0) {
+      whereClauses.push(
+        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
+      );
+      whereValues.push(uid);
     }
 
     const whereSql = whereClauses.length

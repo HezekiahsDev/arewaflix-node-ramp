@@ -242,7 +242,13 @@ export const getAllVideos = async (req, res, next) => {
       if (!Number.isNaN(f)) filters.featured = f;
     }
 
-    const result = await findPaginated({ page, limit, ...filters });
+    const requestingUserId = getAuthenticatedUserId(req);
+    const result = await findPaginated({
+      page,
+      limit,
+      ...filters,
+      requestingUserId,
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -274,7 +280,13 @@ export const getFilteredVideos = async (req, res, next) => {
       if (!Number.isNaN(f)) filters.featured = f;
     }
 
-    const result = await findPaginated({ page, limit, ...filters });
+    const requestingUserId = getAuthenticatedUserId(req);
+    const result = await findPaginated({
+      page,
+      limit,
+      ...filters,
+      requestingUserId,
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -292,6 +304,7 @@ export const getShortsVideos = async (req, res, next) => {
         });
       }
     }
+    const requestingUserId = getAuthenticatedUserId(req);
     const result = await findPaginated({
       page,
       limit,
@@ -300,6 +313,7 @@ export const getShortsVideos = async (req, res, next) => {
       sort,
       featured,
       shortsOnly: true,
+      requestingUserId,
     });
     res.json(result);
   } catch (err) {
@@ -487,7 +501,8 @@ export const searchVideosController = async (req, res, next) => {
       if (!Number.isNaN(f)) filters.featured = f;
     }
 
-    const result = await searchVideos(filters);
+    const requestingUserId = getAuthenticatedUserId(req);
+    const result = await searchVideos({ ...filters, requestingUserId });
     res.json(result);
   } catch (err) {
     next(err);
@@ -530,7 +545,8 @@ export const getRandomVideosController = async (req, res, next) => {
       if (!Number.isNaN(p)) filters.privacy = p;
     }
 
-    const result = await getRandomVideos(filters);
+    const requestingUserId = getAuthenticatedUserId(req);
+    const result = await getRandomVideos({ ...filters, requestingUserId });
     res.json(result);
   } catch (err) {
     next(err);
