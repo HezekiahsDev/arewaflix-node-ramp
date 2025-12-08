@@ -6,6 +6,8 @@ import {
   createCommentReport,
 } from "./comments.service.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { getBlockedUsers } from "../user-block/user-block.service.js";
+import filterBlockedComments from "../utils/filterBlockedComments.js";
 
 const extractUserId = (req) => {
   const authUser = req?.user;
@@ -50,6 +52,36 @@ export const fetchComments = async (req, res, next) => {
       limit,
       requestingUserId: userId,
     });
+
+    // Defensive: also fetch blocked users here and ensure any comments from blocked
+    // users are removed from the response. The service already attempts to
+    // exclude blocked users server-side; this is an extra safeguard.
+    let blockedRows = [];
+    try {
+      blockedRows = await getBlockedUsers(userId);
+    } catch (e) {
+      // If fetching blocked users fails, treat as no blocks (don't fail the request).
+      blockedRows = [];
+    }
+
+    const blockedIds = Array.isArray(blockedRows)
+      ? blockedRows
+          .map((r) => Number(r.blocked_id || r.blockedId || r.id || 0))
+          .filter((n) => Number.isSafeInteger(n) && n > 0)
+      : [];
+
+    if (Array.isArray(result?.data) && blockedIds.length) {
+      const filtered = filterBlockedComments(
+        result.data,
+        blockedIds,
+        "user_id"
+      );
+      result.data = filtered;
+      // Note: pagination.total was computed in the service and should already
+      // reflect excluded blocked users. If the service didn't exclude them,
+      // the pagination counts may be inconsistent.
+    }
+
     res.json(result);
   } catch (err) {
     next(err);
