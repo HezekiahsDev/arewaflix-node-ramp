@@ -15,7 +15,7 @@ const requireAuth = passport.authenticate("jwt", { session: false });
 router.post("/", requireAuth, createComment);
 
 // GET /api/v1/videos/:id/comments
-router.get("/", fetchComments);
+router.get("/", requireAuth, fetchComments);
 
 // POST /api/v1/videos/:id/comments/:commentId/reactions
 router.post("/:commentId/reactions", requireAuth, likeComment);

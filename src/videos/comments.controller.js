@@ -38,14 +38,17 @@ export const createComment = async (req, res, next) => {
 
 export const fetchComments = async (req, res, next) => {
   try {
+    const userId = extractUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
     const videoId = Number(req.params.id);
     const { page, limit } = req.query;
-    const requestingUserId = extractUserId(req);
     const result = await getCommentsForVideo({
       videoId,
       page,
       limit,
-      requestingUserId,
+      requestingUserId: userId,
     });
     res.json(result);
   } catch (err) {
