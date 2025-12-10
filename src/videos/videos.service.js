@@ -346,6 +346,15 @@ export const recordView = async ({ videoId, fingerprint, userId } = {}) => {
     throw new HttpError("Video not found.", 404);
   }
 
+  // If no fingerprint is provided, do not record a view (return 200)
+  if (!sanitizedFingerprint) {
+    return {
+      videoId: parsedVideoId,
+      views: Number(video.views) || 0,
+      counted: false,
+    };
+  }
+
   let counted = true;
   let existingViewId = null;
 
