@@ -25,12 +25,13 @@ export const blockVideo = async (req, res, next) => {
       });
     }
 
+    const body = req.body || {};
     let {
       blockType = "manual",
       reason = "",
       startAt = 0,
       endAt = 0,
-    } = req.body;
+    } = body;
 
     // Validate block type
     if (!VALID_BLOCK_TYPES.includes(blockType)) {
