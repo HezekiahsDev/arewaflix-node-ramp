@@ -11,6 +11,7 @@ import {
   getVideoReactions,
   getUserReaction,
   reportVideo,
+  blockVideo,
   saveVideo,
   getSavedStatus,
   getSavedVideos,
@@ -59,6 +60,9 @@ router.get("/:id/reaction", requireAuth, getUserReaction);
 
 // POST /api/v1/videos/:id/report (report a video)
 router.post("/:id/report", requireAuth, reportVideo);
+
+// POST /api/v1/videos/:videoID/block (block a video for the current user)
+router.post("/:videoID/block", requireAuth, blockVideo);
 
 // POST /api/v1/videos/:id/save (save a video)
 router.post("/:id/save", requireAuth, saveVideo);

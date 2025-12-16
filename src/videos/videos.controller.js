@@ -13,6 +13,7 @@ import {
   getSavedVideosForUser,
   removeSavedVideo,
   isVideoSaved,
+  createBlockedVideo,
 } from "./videos.service.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 
@@ -662,6 +663,41 @@ export const removeSaved = async (req, res, next) => {
   }
 };
 
+export const blockVideo = async (req, res, next) => {
+  try {
+    // This endpoint should not accept a request body.
+    if (
+      req.body &&
+      typeof req.body === "object" &&
+      Object.keys(req.body).length > 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Request body must be empty for this endpoint." });
+    }
+
+    const userId = getAuthenticatedUserId(req);
+    if (!userId)
+      return res.status(401).json({ error: "Authentication required." });
+
+    const videoId = parseVideoId(req?.params?.videoID);
+    if (!videoId)
+      return res.status(400).json({
+        error:
+          "'videoID' parameter is required and must be a positive integer.",
+      });
+
+    const created = await createBlockedVideo({ userId, videoId });
+    // Return 201 when newly created, 200 if already existed
+    if (created && created.alreadyBlocked) {
+      return res.status(200).json({ message: "Video already blocked." });
+    }
+    return res.status(201).json({ data: created });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default {
   getAllVideos,
   getFilteredVideos,
@@ -678,4 +714,5 @@ export default {
   saveVideo,
   getSavedVideos,
   removeSaved,
+  blockVideo,
 };

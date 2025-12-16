@@ -820,6 +820,44 @@ export const createSavedVideo = async ({ userId, videoId } = {}) => {
   return savedRows?.[0] || null;
 };
 
+export const createBlockedVideo = async ({ userId, videoId } = {}) => {
+  const parsedUserId = normalizeUserId(userId);
+  if (!parsedUserId)
+    throw new HttpError("User authentication is required.", 401);
+
+  const parsedVideoId = Number(videoId);
+  if (!Number.isSafeInteger(parsedVideoId) || parsedVideoId <= 0)
+    throw new HttpError("'videoId' must be a positive integer.", 400);
+
+  // Verify video exists
+  const rows = await db.query("SELECT id FROM videos WHERE id = ?", [
+    parsedVideoId,
+  ]);
+  if (!rows?.length) throw new HttpError("Video not found.", 404);
+
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  // Prevent duplicate blocks by same user
+  const existing = await db.query(
+    "SELECT id FROM blocked_videos WHERE user_id = ? AND video_id = ? LIMIT 1",
+    [parsedUserId, parsedVideoId]
+  );
+  if (existing?.length) return { alreadyBlocked: true, id: existing[0].id };
+
+  const result = await db.query(
+    "INSERT INTO blocked_videos (user_id, video_id, time) VALUES (?, ?, ?)",
+    [parsedUserId, parsedVideoId, timestamp]
+  );
+  const insertedId = result?.insertId;
+  if (!insertedId) throw new HttpError("Unable to block video.", 500);
+
+  const blockedRows = await db.query(
+    "SELECT * FROM blocked_videos WHERE id = ?",
+    [insertedId]
+  );
+  return blockedRows?.[0] || null;
+};
+
 export const isVideoSaved = async ({ userId, videoId } = {}) => {
   const parsedUserId = normalizeUserId(userId);
   if (!parsedUserId)
@@ -912,4 +950,5 @@ export default {
   createSavedVideo,
   getSavedVideosForUser,
   removeSavedVideo,
+  createBlockedVideo,
 };
