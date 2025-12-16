@@ -26,48 +26,47 @@ export const blockVideo = async (req, res, next) => {
     }
 
     const body = req.body || {};
-    let {
-      blockType = "manual",
-      reason = "",
-      startAt = 0,
-      endAt = 0,
-    } = body;
 
-    // Validate block type
-    if (!VALID_BLOCK_TYPES.includes(blockType)) {
+    // Ensure body is an object
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid request body." });
+    }
+
+    // Only allow `reason` field in the POST body
+    const allowedFields = ["reason"];
+    const extraFields = Object.keys(body).filter(
+      (k) => !allowedFields.includes(k)
+    );
+    if (extraFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid block type.",
+        message: "Only the 'reason' field is allowed in the request body.",
       });
     }
 
-    // Sanitize and validate reason
-    reason = String(reason || "").trim();
+    // Sanitize and validate reason (required, non-empty)
+    let reason = String(body.reason || "").trim();
+    if (!reason) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Reason is required and cannot be empty.",
+        });
+    }
     if (reason.length > MAX_REASON_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        message: "Reason too long.",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Reason too long." });
     }
     reason = escapeHtml(reason);
 
-    // Validate timestamps
-    startAt = Number(startAt) || 0;
-    endAt = Number(endAt) || 0;
-
-    if (startAt < 0 || endAt < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid timestamp.",
-      });
-    }
-
-    if (endAt > 0 && endAt <= startAt) {
-      return res.status(400).json({
-        success: false,
-        message: "End time must be after start time.",
-      });
-    }
+    // Server-side defaults for fields we no longer accept from client
+    const blockType = "manual";
+    const startAt = 0;
+    const endAt = 0;
 
     const result = await videoBlockService.blockVideo({
       videoId: Number(videoId),
