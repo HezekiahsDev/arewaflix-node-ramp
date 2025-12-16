@@ -14,8 +14,8 @@ const MAX_REASON_LENGTH = 1000;
 
 export const blockVideo = async (req, res, next) => {
   try {
-    const adminId = req.user?.id;
-    const adminRole = req.user?.role;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
 
     const videoId = req.params.videoId;
     if (!videoId || isNaN(videoId) || Number(videoId) <= 0) {
@@ -70,7 +70,7 @@ export const blockVideo = async (req, res, next) => {
 
     const result = await videoBlockService.blockVideo({
       videoId: Number(videoId),
-      blockedBy: adminId,
+      blockedBy: userId,
       blockType,
       reason,
       startAt,
@@ -78,7 +78,7 @@ export const blockVideo = async (req, res, next) => {
     });
 
     console.log(
-      `[ADMIN ACTION] User ${adminId} (${adminRole}) blocked video ${videoId} with type ${blockType}`
+      `[USER ACTION] User ${userId} (${userRole}) blocked video ${videoId} with type ${blockType}`
     );
 
     return res
@@ -95,8 +95,8 @@ export const blockVideo = async (req, res, next) => {
 
 export const unblockVideo = async (req, res, next) => {
   try {
-    const adminId = req.user?.id;
-    const adminRole = req.user?.role;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
 
     const blockId = req.params.blockId;
     if (!blockId || isNaN(blockId) || Number(blockId) <= 0) {
@@ -108,7 +108,7 @@ export const unblockVideo = async (req, res, next) => {
 
     const result = await videoBlockService.unblockVideo(
       Number(blockId),
-      adminId
+      userId
     );
     if (result.affectedRows === 0) {
       return res
@@ -117,7 +117,7 @@ export const unblockVideo = async (req, res, next) => {
     }
 
     console.log(
-      `[ADMIN ACTION] User ${adminId} (${adminRole}) unblocked video block ID ${blockId}`
+      `[USER ACTION] User ${userId} (${userRole}) unblocked video block ID ${blockId}`
     );
 
     return res.json({ success: true, message: "Video unblocked." });
@@ -153,9 +153,11 @@ export const getBlockedVideos = async (req, res, next) => {
       }
     }
 
+    // Return blocked videos scoped to the authenticated user
     const blockedVideos = await videoBlockService.getBlockedVideos({
       blockType,
       active,
+      blockedBy: req.user?.id,
     });
     return res.json({ success: true, data: blockedVideos });
   } catch (err) {

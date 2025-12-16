@@ -131,6 +131,7 @@ export const getBlockedVideos = async ({
   active = 1,
   limit = 100,
   offset = 0,
+  blockedBy = null,
 } = {}) => {
   // Validate pagination parameters
   if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 500) {
@@ -157,6 +158,14 @@ export const getBlockedVideos = async ({
   if (blockType) {
     query += " AND vb.block_type = ?";
     params.push(blockType);
+  }
+
+  if (blockedBy !== null && blockedBy !== undefined) {
+    if (!Number.isSafeInteger(blockedBy) || blockedBy <= 0) {
+      throw new ApiError("'blockedBy' must be a positive integer.", 400);
+    }
+    query += " AND vb.blocked_by = ?";
+    params.push(blockedBy);
   }
 
   query += " ORDER BY vb.created_at DESC LIMIT ? OFFSET ?";
