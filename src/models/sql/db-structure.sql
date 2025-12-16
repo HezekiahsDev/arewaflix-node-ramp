@@ -1337,6 +1337,32 @@ CREATE TABLE `video_ads` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+
+--
+-- Table structure for table `video_blocks`
+--
+
+CREATE TABLE `video_blocks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `video_id` int NOT NULL DEFAULT 0,
+  `blocked_by` int NOT NULL DEFAULT 0,            -- user_id who blocked (admin), 0 = system
+  `block_type` varchar(50) NOT NULL DEFAULT 'global', -- e.g. global, user, geo, copyright, age, manual
+  `reason` varchar(1000) NOT NULL DEFAULT '',
+  `start_at` bigint NOT NULL DEFAULT 0,            -- unix timestamp
+  `end_at` bigint NOT NULL DEFAULT 0,              -- 0 = indefinite
+  `active` tinyint(1) NOT NULL DEFAULT 1,         -- 1 = currently enforced
+  `lifted_by` int NOT NULL DEFAULT 0,             -- user_id who lifted the block
+  `lifted_at` bigint NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `video_id` (`video_id`),
+  KEY `blocked_by` (`blocked_by`),
+  KEY `block_type` (`block_type`),
+  KEY `active` (`active`),
+  KEY `end_at` (`end_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
 --
 -- Table structure for table `video_time`
 --
@@ -1355,6 +1381,7 @@ CREATE TABLE `video_time` (
   KEY `time` (`time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
 
 --
 -- Table structure for table `videos`
