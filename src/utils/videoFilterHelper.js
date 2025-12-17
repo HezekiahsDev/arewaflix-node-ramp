@@ -25,6 +25,7 @@ export const buildVideoFilterConditions = async (userId) => {
     const blockedVideos = await getBlockedVideos({
       blockedBy: userId,
       active: 1,
+      // use service's allowed limit to avoid requesting more than intended
       limit: 500,
       offset: 0,
     });
@@ -33,6 +34,7 @@ export const buildVideoFilterConditions = async (userId) => {
     const blockedCreators = await getBlockedCreators({
       blockedBy: userId,
       active: 1,
+      // use service's allowed limit to avoid requesting more than intended
       limit: 500,
       offset: 0,
     });
@@ -64,6 +66,21 @@ export const buildVideoFilterConditions = async (userId) => {
           .filter((id) => id !== null)
       )
     );
+
+    // Optional debug logging: enable by setting DEBUG_VIDEO_FILTER=1 in env
+    try {
+      if (process.env.DEBUG_VIDEO_FILTER === "1") {
+        // Keep logs concise and structured
+        console.debug(
+          "videoFilterHelper:blockedVideoIds",
+          blockedVideoIds,
+          "blockedCreatorIds",
+          blockedCreatorIds
+        );
+      }
+    } catch (e) {
+      // swallow debug logging errors
+    }
 
     // Exclude blocked videos by video ID
     if (blockedVideoIds.length > 0) {
