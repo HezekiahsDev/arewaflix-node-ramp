@@ -53,6 +53,19 @@ export const findPaginated = async ({
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
 
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "findPaginated: whereSql",
+          whereSql,
+          "params",
+          whereValues,
+          "requestingUserId",
+          requestingUserId
+        );
+      } catch (e) {}
+    }
+
     // Count total
     const totalRows = await db.query(
       `SELECT COUNT(*) as total FROM videos ${whereSql}`,
@@ -614,6 +627,18 @@ export const searchVideos = async ({
     whereValues.push(...filterValues);
 
     const whereSql = `WHERE ${whereClauses.join(" AND ")}`;
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "searchVideos: whereSql",
+          whereSql,
+          "params",
+          whereValues,
+          "requestingUserId",
+          requestingUserId
+        );
+      } catch (e) {}
+    }
 
     // Count total matching videos
     const totalRows = await db.query(
@@ -695,6 +720,18 @@ export const getRandomVideos = async ({
     const whereSql = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "getRandomVideos: whereSql",
+          whereSql,
+          "params",
+          whereValues,
+          "requestingUserId",
+          requestingUserId
+        );
+      } catch (e) {}
+    }
 
     // Count total matching videos for pagination
     const totalRows = await db.query(
