@@ -28,6 +28,15 @@ const router = express.Router();
 
 const requireAuth = passport.authenticate("jwt", { session: false });
 
+// Optional auth: if a valid JWT is provided, populate `req.user`, otherwise continue unauthenticated
+const optionalAuth = (req, res, next) => {
+  return passport.authenticate("jwt", { session: false }, (err, user) => {
+    if (err) return next(err);
+    if (user) req.user = user;
+    return next();
+  })(req, res, next);
+};
+
 // Per-route limiter: restrict how many videos a single IP can create per hour
 const createVideoLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -50,22 +59,22 @@ router.post(
 );
 
 // GET /api/v1/videos?limit=20&page=1
-router.get("/", getAllVideos);
+router.get("/", optionalAuth, getAllVideos);
 
 // GET /api/v1/videos/filter?sort=most_viewed|popular|top_rated|latest|oldest&limit=20&page=1
-router.get("/filter", getFilteredVideos);
+router.get("/filter", optionalAuth, getFilteredVideos);
 
 // GET /api/v1/videos/search?q=query&limit=20&page=1
-router.get("/search", searchVideosController);
+router.get("/search", optionalAuth, searchVideosController);
 
 // GET /api/v1/videos/random?page=1&limit=20
-router.get("/random", getRandomVideosController);
+router.get("/random", optionalAuth, getRandomVideosController);
 
 // POST /api/v1/videos/shorts
 router.post("/shorts", requireAuth, createShort);
 
 // GET /api/v1/videos/shorts?sort=latest&limit=20&page=1
-router.get("/shorts", getShortsVideos);
+router.get("/shorts", optionalAuth, getShortsVideos);
 
 // POST /api/v1/videos/views
 router.post("/views", createView);
