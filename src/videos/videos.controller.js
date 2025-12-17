@@ -178,8 +178,10 @@ const buildCreatePayload = (req, res, { isShort, userId }) => {
   assignOptionalStrings(body, payload);
 
   // Validate lengths for common string fields (defensive limits)
-  if (payload.title && String(payload.title).length > 300) {
-    res.status(400).json({ error: "'title' must be at most 300 characters." });
+  // DB `videos.title` is `varchar(100)` so enforce 100 chars here to avoid
+  // silent truncation or DB errors when strict mode is enabled.
+  if (payload.title && String(payload.title).length > 100) {
+    res.status(400).json({ error: "'title' must be at most 100 characters." });
     return null;
   }
   if (payload.description && String(payload.description).length > 5000) {
@@ -190,6 +192,13 @@ const buildCreatePayload = (req, res, { isShort, userId }) => {
   }
   if (payload.tags && String(payload.tags).length > 500) {
     res.status(400).json({ error: "'tags' must be at most 500 characters." });
+    return null;
+  }
+  // Enforce thumbnail length to fit DB (`varchar(500)`)
+  if (payload.thumbnail && String(payload.thumbnail).length > 500) {
+    res
+      .status(400)
+      .json({ error: "'thumbnail' must be at most 500 characters." });
     return null;
   }
 
@@ -323,12 +332,29 @@ export const getShortsVideos = async (req, res, next) => {
 };
 
 export const createVideo = async (req, res, next) => {
-  // Create video endpoint disabled.
-  // Original implementation commented out to prevent unauthenticated clients
-  // from supplying `user_id` and impersonating other users.
-  // To re-enable, restore the implementation and ensure authentication
-  // is required (do not accept client-supplied `user_id`).
-  return res.status(403).json({ error: "Create video endpoint is disabled." });
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required." });
+    }
+
+    // Remove any client-supplied identity or server-generated fields to
+    // prevent tampering (e.g., user_id, video_id, short_id, is_short).
+    if (req.body && typeof req.body === "object") {
+      delete req.body.user_id;
+      delete req.body.video_id;
+      delete req.body.short_id;
+      delete req.body.is_short;
+    }
+
+    const payload = buildCreatePayload(req, res, { isShort: false, userId });
+    if (!payload) return;
+
+    const created = await createVideoRecord(payload);
+    res.status(201).json({ data: created });
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const createShort = async (req, res, next) => {

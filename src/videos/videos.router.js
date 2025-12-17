@@ -1,5 +1,8 @@
 import express from "express";
 import passport from "passport";
+import rateLimit from "express-rate-limit";
+import rejectScriptLikeInput from "../middlewares/rejectScriptLikeInput.js";
+import sanitizeInput from "../middlewares/sanitizeInput.js";
 import {
   getAllVideos,
   getFilteredVideos,
@@ -25,8 +28,26 @@ const router = express.Router();
 
 const requireAuth = passport.authenticate("jwt", { session: false });
 
-// POST /api/v1/videos (no auth required for manual testing)
-// router.post("/", createVideo);
+// Per-route limiter: restrict how many videos a single IP can create per hour
+const createVideoLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30, // max 30 creations per IP per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many video creation attempts, please try again later.",
+  },
+});
+
+// POST /api/v1/videos (secured)
+router.post(
+  "/",
+  requireAuth,
+  sanitizeInput,
+  rejectScriptLikeInput,
+  createVideoLimiter,
+  createVideo
+);
 
 // GET /api/v1/videos?limit=20&page=1
 router.get("/", getAllVideos);

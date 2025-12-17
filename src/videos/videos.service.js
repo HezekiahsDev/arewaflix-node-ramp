@@ -2,6 +2,7 @@ import crypto from "crypto";
 import db from "../models/db.js";
 import HttpError from "../utils/httpError.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { buildVideoFilterConditions } from "../utils/videoFilterHelper.js";
 
 // Fetch paginated videos from the database with safe defaults and a graceful fallback
 export const findPaginated = async ({
@@ -41,14 +42,13 @@ export const findPaginated = async ({
       whereClauses.push("is_short = ?");
       whereValues.push(Number(is_short));
     }
-    // Exclude videos from users blocked by the requesting user
-    const uid = Number(requestingUserId);
-    if (Number.isSafeInteger(uid) && uid > 0) {
-      whereClauses.push(
-        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
-      );
-      whereValues.push(uid);
-    }
+
+    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
+    const { whereClauses: filterClauses, whereValues: filterValues } =
+      await buildVideoFilterConditions(requestingUserId);
+    whereClauses.push(...filterClauses);
+    whereValues.push(...filterValues);
+
     const whereSql = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
@@ -607,14 +607,11 @@ export const searchVideos = async ({
       whereValues.push(Number(privacy));
     }
 
-    // Exclude videos from users blocked by the requesting user
-    const uid = Number(requestingUserId);
-    if (Number.isSafeInteger(uid) && uid > 0) {
-      whereClauses.push(
-        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
-      );
-      whereValues.push(uid);
-    }
+    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
+    const { whereClauses: filterClauses, whereValues: filterValues } =
+      await buildVideoFilterConditions(requestingUserId);
+    whereClauses.push(...filterClauses);
+    whereValues.push(...filterValues);
 
     const whereSql = `WHERE ${whereClauses.join(" AND ")}`;
 
@@ -689,14 +686,11 @@ export const getRandomVideos = async ({
       whereValues.push(Number(privacy));
     }
 
-    // Exclude videos from users blocked by the requesting user
-    const uid = Number(requestingUserId);
-    if (Number.isSafeInteger(uid) && uid > 0) {
-      whereClauses.push(
-        "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
-      );
-      whereValues.push(uid);
-    }
+    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
+    const { whereClauses: filterClauses, whereValues: filterValues } =
+      await buildVideoFilterConditions(requestingUserId);
+    whereClauses.push(...filterClauses);
+    whereValues.push(...filterValues);
 
     const whereSql = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
@@ -889,9 +883,31 @@ export const getSavedVideosForUser = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const offset = (safePage - 1) * safeLimit;
 
+  // Build filter conditions for blocked videos and creators
+  const { whereClauses: filterClauses, whereValues: filterValues } =
+    await buildVideoFilterConditions(parsedUserId);
+
+  // Build additional WHERE clause for filtering
+  let additionalWhereClause = "";
+  const additionalWhereValues = [];
+
+  if (filterClauses.length > 0) {
+    // Replace "id" with "v.id" and "user_id" with "v.user_id" for JOIN context
+    const joinFilterClauses = filterClauses.map((clause) => {
+      return clause
+        .replace(/\bid\b(?!\s*NOT)/g, "v.id")
+        .replace(/\buser_id\b/g, "v.user_id");
+    });
+    additionalWhereClause = ` AND ${joinFilterClauses.join(" AND ")}`;
+    additionalWhereValues.push(...filterValues);
+  }
+
   const totalRows = await db.query(
-    "SELECT COUNT(*) as total FROM saved_videos WHERE user_id = ?",
-    [parsedUserId]
+    `SELECT COUNT(*) as total 
+     FROM saved_videos sv
+     LEFT JOIN videos v ON sv.video_id = v.id
+     WHERE sv.user_id = ?${additionalWhereClause}`,
+    [parsedUserId, ...additionalWhereValues]
   );
   const total = Number(totalRows?.[0]?.total || 0);
 
@@ -900,10 +916,10 @@ export const getSavedVideosForUser = async ({
     `SELECT sv.id as saved_id, sv.time as saved_time, v.*
      FROM saved_videos sv
      LEFT JOIN videos v ON sv.video_id = v.id
-     WHERE sv.user_id = ?
+     WHERE sv.user_id = ?${additionalWhereClause}
      ORDER BY sv.id DESC
      LIMIT ? OFFSET ?`,
-    [parsedUserId, safeLimit, offset]
+    [parsedUserId, ...additionalWhereValues, safeLimit, offset]
   );
 
   return {
