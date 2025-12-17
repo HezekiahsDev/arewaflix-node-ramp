@@ -21,10 +21,11 @@ export const buildVideoFilterConditions = async (userId) => {
 
   try {
     // Get all videos blocked by this user (active blocks only)
+    // increase limit slightly to cover larger lists; services already cap defensively
     const blockedVideos = await getBlockedVideos({
       blockedBy: userId,
       active: 1,
-      limit: 500, // Get maximum allowed
+      limit: 500,
       offset: 0,
     });
 
@@ -32,19 +33,37 @@ export const buildVideoFilterConditions = async (userId) => {
     const blockedCreators = await getBlockedCreators({
       blockedBy: userId,
       active: 1,
-      limit: 500, // Get maximum allowed
+      limit: 500,
       offset: 0,
     });
 
-    // Extract video IDs that are blocked
-    const blockedVideoIds = blockedVideos
-      .map((block) => block.video_id)
-      .filter((id) => Number.isSafeInteger(id) && id > 0);
+    // Helper to coerce and validate integer ids (handles numeric strings)
+    const normalizeId = (v) => {
+      if (v === undefined || v === null) return null;
+      const n = Number(v);
+      if (!Number.isFinite(n)) return null;
+      const i = Math.trunc(n);
+      if (i <= 0) return null;
+      return i;
+    };
 
-    // Extract creator IDs that are blocked
-    const blockedCreatorIds = blockedCreators
-      .map((block) => block.creator_id)
-      .filter((id) => Number.isSafeInteger(id) && id > 0);
+    // Extract video IDs that are blocked (coerce, filter, dedupe)
+    const blockedVideoIds = Array.from(
+      new Set(
+        (blockedVideos || [])
+          .map((block) => normalizeId(block.video_id))
+          .filter((id) => id !== null)
+      )
+    );
+
+    // Extract creator IDs that are blocked (coerce, filter, dedupe)
+    const blockedCreatorIds = Array.from(
+      new Set(
+        (blockedCreators || [])
+          .map((block) => normalizeId(block.creator_id))
+          .filter((id) => id !== null)
+      )
+    );
 
     // Exclude blocked videos by video ID
     if (blockedVideoIds.length > 0) {
