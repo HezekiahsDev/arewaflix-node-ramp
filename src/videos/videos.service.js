@@ -72,6 +72,18 @@ export const findPaginated = async ({
       whereValues
     );
     const total = Number(totalRows?.[0]?.total || 0);
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "findPaginated: total",
+          total,
+          "whereSql",
+          whereSql,
+          "params",
+          whereValues
+        );
+      } catch (e) {}
+    }
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
     if (safePage > totalPages) safePage = totalPages;
     offset = (safePage - 1) * safeLimit;
@@ -114,6 +126,17 @@ export const findPaginated = async ({
        LIMIT ? OFFSET ?`,
       [...whereValues, safeLimit, offset]
     );
+
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "findPaginated: fetchedRows",
+          Array.isArray(rows) ? rows.length : 0,
+          "ids",
+          (rows || []).slice(0, 10).map((r) => r.id)
+        );
+      } catch (e) {}
+    }
 
     return {
       data: rows,
