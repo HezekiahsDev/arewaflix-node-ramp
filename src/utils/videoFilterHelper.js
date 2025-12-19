@@ -91,15 +91,32 @@ export const buildVideoFilterConditions = async (userId) => {
     }
 
     // Exclude videos from users blocked via user_blocks table
+    // For debugging, optionally fetch list of blocked user ids
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        const [blockedUsers] = await (
+          await import("../models/db.js")
+        ).default.pool.execute(
+          "SELECT blocked_id FROM user_blocks WHERE blocker_id = ?",
+          [userId]
+        );
+        console.debug(
+          "videoFilterHelper:blockedUserIds",
+          (blockedUsers || []).map((r) => r.blocked_id)
+        );
+      } catch (e) {}
+    }
+
+    // Use NOT EXISTS to avoid surprising behavior if subquery contains NULLs
     whereClauses.push(
-      "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
+      "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
     );
     whereValues.push(userId);
   } catch (err) {
     console.error("Error building video filter conditions:", err.message);
-    // On error, still apply user_blocks filtering as a fallback
+    // On error, still apply user_blocks filtering as a fallback (use NOT EXISTS)
     whereClauses.push(
-      "user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)"
+      "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
     );
     whereValues.push(userId);
   }

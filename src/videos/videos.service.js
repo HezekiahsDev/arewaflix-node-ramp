@@ -126,18 +126,33 @@ export const findPaginated = async ({
        LIMIT ? OFFSET ?`,
       [...whereValues, safeLimit, offset]
     );
-
     if (process.env.DEBUG_VIDEO_FILTER === "1") {
       try {
         console.debug(
-          "findPaginated: fetchedRows",
-          Array.isArray(rows) ? rows.length : 0,
-          "ids",
-          (rows || []).slice(0, 10).map((r) => r.id)
+          "findPaginated: total",
+          total,
+          "whereSql",
+          whereSql,
+          "params",
+          whereValues
         );
+
+        // Also log total videos without filters for comparison
+        const allRows = await db.query(`SELECT COUNT(*) as total FROM videos`);
+        const allTotal = Number(allRows?.[0]?.total || 0);
+        console.debug("findPaginated: totalAllVideos", allTotal);
+
+        // Build a quick expanded SQL for debugging (do not use in production)
+        let expanded = `SELECT COUNT(*) as total FROM videos ${whereSql}`;
+        const vals = [...whereValues];
+        for (const v of vals) {
+          const rep =
+            typeof v === "number" ? v : `'${String(v).replace(/'/g, "''")}'`;
+          expanded = expanded.replace("?", rep);
+        }
+        console.debug("findPaginated: expandedSql", expanded);
       } catch (e) {}
     }
-
     return {
       data: rows,
       pagination: {
