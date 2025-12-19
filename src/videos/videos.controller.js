@@ -258,6 +258,7 @@ export const getAllVideos = async (req, res, next) => {
       limit,
       ...filters,
       requestingUserId,
+      includeUserBlocks: true,
     });
 
     // Video filtering (blocked videos / creators / users) is applied in the

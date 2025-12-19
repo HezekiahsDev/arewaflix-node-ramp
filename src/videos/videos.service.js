@@ -15,6 +15,7 @@ export const findPaginated = async ({
   is_short,
   shortsOnly = false,
   requestingUserId = null,
+  includeUserBlocks = false,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   let safePage = Math.max(1, Number(page) || 1);
@@ -43,13 +44,19 @@ export const findPaginated = async ({
       whereValues.push(Number(is_short));
     }
 
-    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
-    const { whereClauses: filterClauses, whereValues: filterValues } =
-      await buildVideoFilterConditions(requestingUserId);
+    // Save base clauses so we can attempt a safe fallback if user_blocks excludes everything
+    const baseWhereClauses = [...whereClauses];
+    const baseWhereValues = [...whereValues];
+
+    // Apply video filtering: exclude blocked videos and blocked creators; optionally include user_blocks
+    let { whereClauses: filterClauses, whereValues: filterValues } =
+      await buildVideoFilterConditions(requestingUserId, {
+        includeUserBlocks,
+      });
     whereClauses.push(...filterClauses);
     whereValues.push(...filterValues);
 
-    const whereSql = whereClauses.length
+    let whereSql = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
 
@@ -67,11 +74,11 @@ export const findPaginated = async ({
     }
 
     // Count total
-    const totalRows = await db.query(
+    let totalRows = await db.query(
       `SELECT COUNT(*) as total FROM videos ${whereSql}`,
       whereValues
     );
-    const total = Number(totalRows?.[0]?.total || 0);
+    let total = Number(totalRows?.[0]?.total || 0);
     if (process.env.DEBUG_VIDEO_FILTER === "1") {
       try {
         console.debug(
@@ -83,6 +90,65 @@ export const findPaginated = async ({
           whereValues
         );
       } catch (e) {}
+    }
+
+    // Safety fallback: if we included user_blocks but that excludes ALL videos,
+    // try again without user_blocks (keep blocked-video and blocked-creator filters).
+    if (includeUserBlocks && total === 0) {
+      if (process.env.DEBUG_VIDEO_FILTER === "1") {
+        try {
+          console.debug(
+            "findPaginated: user_blocks excluded all rows, attempting fallback without user_blocks"
+          );
+        } catch (e) {}
+      }
+
+      try {
+        const fallback = await buildVideoFilterConditions(requestingUserId, {
+          includeUserBlocks: false,
+        });
+
+        // Rebuild whereClauses/whereValues from base + fallback
+        whereClauses.splice(
+          0,
+          whereClauses.length,
+          ...baseWhereClauses,
+          ...fallback.whereClauses
+        );
+        whereValues.splice(
+          0,
+          whereValues.length,
+          ...baseWhereValues,
+          ...fallback.whereValues
+        );
+        whereSql = whereClauses.length
+          ? `WHERE ${whereClauses.join(" AND ")}`
+          : "";
+
+        totalRows = await db.query(
+          `SELECT COUNT(*) as total FROM videos ${whereSql}`,
+          whereValues
+        );
+        total = Number(totalRows?.[0]?.total || 0);
+
+        if (process.env.DEBUG_VIDEO_FILTER === "1") {
+          try {
+            console.debug(
+              "findPaginated: fallback total",
+              total,
+              "whereSql",
+              whereSql,
+              "params",
+              whereValues
+            );
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.error(
+          "findPaginated: fallback error:",
+          e && e.message ? e.message : e
+        );
+      }
     }
     if (process.env.DEBUG_VIDEO_FILTER === "1") {
       try {
@@ -691,9 +757,11 @@ export const searchVideos = async ({
       whereValues.push(Number(privacy));
     }
 
-    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
+    // Apply video filtering: exclude blocked videos and videos from blocked creators (skip user_blocks)
     const { whereClauses: filterClauses, whereValues: filterValues } =
-      await buildVideoFilterConditions(requestingUserId);
+      await buildVideoFilterConditions(requestingUserId, {
+        includeUserBlocks: false,
+      });
     whereClauses.push(...filterClauses);
     whereValues.push(...filterValues);
 
@@ -782,9 +850,11 @@ export const getRandomVideos = async ({
       whereValues.push(Number(privacy));
     }
 
-    // Apply video filtering: exclude blocked videos, videos from blocked creators, and blocked users
+    // Apply video filtering: exclude blocked videos and videos from blocked creators (skip user_blocks)
     const { whereClauses: filterClauses, whereValues: filterValues } =
-      await buildVideoFilterConditions(requestingUserId);
+      await buildVideoFilterConditions(requestingUserId, {
+        includeUserBlocks: false,
+      });
     whereClauses.push(...filterClauses);
     whereValues.push(...filterValues);
 
@@ -993,7 +1063,9 @@ export const getSavedVideosForUser = async ({
 
   // Build filter conditions for blocked videos and creators
   const { whereClauses: filterClauses, whereValues: filterValues } =
-    await buildVideoFilterConditions(parsedUserId);
+    await buildVideoFilterConditions(parsedUserId, {
+      includeUserBlocks: false,
+    });
 
   // Build additional WHERE clause for filtering
   let additionalWhereClause = "";

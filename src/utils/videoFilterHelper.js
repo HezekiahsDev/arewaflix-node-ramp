@@ -1,4 +1,4 @@
-import { getBlockedCreators } from "../block-creator/block-creator.service.js";
+import getMyBlockedCreatorsHelper from "../block-creator/block-creator.helper.js";
 import getMyBlockedVideosHelper from "../video-block/video-block.helper.js";
 
 /**
@@ -10,7 +10,10 @@ import getMyBlockedVideosHelper from "../video-block/video-block.helper.js";
  * @param {number|null} userId - The ID of the requesting user
  * @returns {Promise<{whereClauses: string[], whereValues: any[]}>}
  */
-export const buildVideoFilterConditions = async (userId) => {
+export const buildVideoFilterConditions = async (
+  userId,
+  { includeUserBlocks = true } = {}
+) => {
   const whereClauses = [];
   const whereValues = [];
 
@@ -24,11 +27,11 @@ export const buildVideoFilterConditions = async (userId) => {
     // The helper returns a normalized array of video ids and fails safely to []
     const blockedVideoIdsFromHelper = await getMyBlockedVideosHelper(userId);
 
-    // Get all creators blocked by this user (active blocks only)
-    const blockedCreators = await getBlockedCreators({
-      blockedBy: userId,
+    // Get all creators blocked by this user (active blocks only) via helper
+    // The helper returns a normalized array of creator ids (or full rows when needed)
+    const blockedCreatorsFromHelper = await getMyBlockedCreatorsHelper(userId, {
+      fullRows: false,
       active: 1,
-      // use service's allowed limit to avoid requesting more than intended
       limit: 500,
       offset: 0,
     });
@@ -55,8 +58,8 @@ export const buildVideoFilterConditions = async (userId) => {
     // Extract creator IDs that are blocked (coerce, filter, dedupe)
     const blockedCreatorIds = Array.from(
       new Set(
-        (blockedCreators || [])
-          .map((block) => normalizeId(block.creator_id))
+        (blockedCreatorsFromHelper || [])
+          .map((v) => normalizeId(v))
           .filter((id) => id !== null)
       )
     );
@@ -90,35 +93,39 @@ export const buildVideoFilterConditions = async (userId) => {
       whereValues.push(...blockedCreatorIds);
     }
 
-    // Exclude videos from users blocked via user_blocks table
-    // For debugging, optionally fetch list of blocked user ids
-    if (process.env.DEBUG_VIDEO_FILTER === "1") {
-      try {
-        const [blockedUsers] = await (
-          await import("../models/db.js")
-        ).default.pool.execute(
-          "SELECT blocked_id FROM user_blocks WHERE blocker_id = ?",
-          [userId]
-        );
-        console.debug(
-          "videoFilterHelper:blockedUserIds",
-          (blockedUsers || []).map((r) => r.blocked_id)
-        );
-      } catch (e) {}
-    }
+    // Exclude videos from users blocked via user_blocks table (optional)
+    if (includeUserBlocks) {
+      // For debugging, optionally fetch list of blocked user ids
+      if (process.env.DEBUG_VIDEO_FILTER === "1") {
+        try {
+          const [blockedUsers] = await (
+            await import("../models/db.js")
+          ).default.pool.execute(
+            "SELECT blocked_id FROM user_blocks WHERE blocker_id = ?",
+            [userId]
+          );
+          console.debug(
+            "videoFilterHelper:blockedUserIds",
+            (blockedUsers || []).map((r) => r.blocked_id)
+          );
+        } catch (e) {}
+      }
 
-    // Use NOT EXISTS to avoid surprising behavior if subquery contains NULLs
-    whereClauses.push(
-      "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
-    );
-    whereValues.push(userId);
+      // Use NOT EXISTS to avoid surprising behavior if subquery contains NULLs
+      whereClauses.push(
+        "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
+      );
+      whereValues.push(userId);
+    }
   } catch (err) {
     console.error("Error building video filter conditions:", err.message);
     // On error, still apply user_blocks filtering as a fallback (use NOT EXISTS)
-    whereClauses.push(
-      "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
-    );
-    whereValues.push(userId);
+    if (includeUserBlocks) {
+      whereClauses.push(
+        "NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id)"
+      );
+      whereValues.push(userId);
+    }
   }
 
   return { whereClauses, whereValues };
@@ -136,10 +143,11 @@ export const buildVideoFilterConditions = async (userId) => {
 export const applyVideoFiltering = async (
   userId,
   existingWhereClauses = [],
-  existingWhereValues = []
+  existingWhereValues = [],
+  options = {}
 ) => {
   const { whereClauses: filterClauses, whereValues: filterValues } =
-    await buildVideoFilterConditions(userId);
+    await buildVideoFilterConditions(userId, options);
 
   return {
     whereClauses: [...existingWhereClauses, ...filterClauses],
