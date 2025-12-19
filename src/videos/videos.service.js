@@ -84,6 +84,39 @@ export const findPaginated = async ({
         );
       } catch (e) {}
     }
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        // Distinct user counts for videos (see if blocked users cover all)
+        const userCounts = await db.query(
+          "SELECT user_id, COUNT(*) as c FROM videos GROUP BY user_id ORDER BY c DESC LIMIT 50"
+        );
+        console.debug(
+          "findPaginated: videoOwnerCounts",
+          (userCounts || []).slice(0, 10)
+        );
+
+        // Videos remaining after excluding video IDs only
+        const idsOnlyRows = await db.query(
+          `SELECT id, user_id FROM videos WHERE ${
+            whereClauses.length ? whereClauses[0] : "1=1"
+          } LIMIT 20`
+        );
+        console.debug(
+          "findPaginated: afterIdExclusionSample",
+          (idsOnlyRows || []).slice(0, 10)
+        );
+
+        // Videos that would be excluded by user_blocks
+        const excludedByUserBlocks = await db.query(
+          `SELECT id, user_id FROM videos WHERE EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = ? AND ub.blocked_id = videos.user_id) LIMIT 50`,
+          [requestingUserId]
+        );
+        console.debug(
+          "findPaginated: excludedByUserBlocksSample",
+          (excludedByUserBlocks || []).slice(0, 20)
+        );
+      } catch (e) {}
+    }
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
     if (safePage > totalPages) safePage = totalPages;
     offset = (safePage - 1) * safeLimit;
