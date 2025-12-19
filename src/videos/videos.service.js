@@ -1135,7 +1135,8 @@ export const getSavedVideosForUser = async ({
     // Replace "id" with "v.id" and "user_id" with "v.user_id" for JOIN context
     const joinFilterClauses = filterClauses.map((clause) => {
       return clause
-        .replace(/\bid\b(?!\s*NOT)/g, "v.id")
+        .replace(/\bvideos\.user_id\b/g, "v.user_id")
+        .replace(/\bid\b/g, "v.id")
         .replace(/\buser_id\b/g, "v.user_id");
     });
     additionalWhereClause = ` AND ${joinFilterClauses.join(" AND ")}`;
@@ -1166,7 +1167,8 @@ export const getSavedVideosForUser = async ({
       });
       const joinFilterClauses = fallback.whereClauses.map((clause) => {
         return clause
-          .replace(/\bid\b(?!\s*NOT)/g, "v.id")
+          .replace(/\bvideos\.user_id\b/g, "v.user_id")
+          .replace(/\bid\b/g, "v.id")
           .replace(/\buser_id\b/g, "v.user_id");
       });
       const fallbackAdditionalWhereClause = joinFilterClauses.length
