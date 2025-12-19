@@ -300,6 +300,7 @@ export const getFilteredVideos = async (req, res, next) => {
       limit,
       ...filters,
       requestingUserId,
+      includeUserBlocks: true,
     });
     res.json(result);
   } catch (err) {
@@ -328,6 +329,7 @@ export const getShortsVideos = async (req, res, next) => {
       featured,
       shortsOnly: true,
       requestingUserId,
+      includeUserBlocks: true,
     });
     res.json(result);
   } catch (err) {

@@ -757,10 +757,14 @@ export const searchVideos = async ({
       whereValues.push(Number(privacy));
     }
 
-    // Apply video filtering: exclude blocked videos and videos from blocked creators (skip user_blocks)
-    const { whereClauses: filterClauses, whereValues: filterValues } =
+    // Save base clauses for potential fallback
+    const baseWhereClauses = [...whereClauses];
+    const baseWhereValues = [...whereValues];
+
+    // Apply video filtering with user_blocks enabled and fallback if it excludes everything
+    let { whereClauses: filterClauses, whereValues: filterValues } =
       await buildVideoFilterConditions(requestingUserId, {
-        includeUserBlocks: false,
+        includeUserBlocks: true,
       });
     whereClauses.push(...filterClauses);
     whereValues.push(...filterValues);
@@ -780,11 +784,63 @@ export const searchVideos = async ({
     }
 
     // Count total matching videos
-    const totalRows = await db.query(
+    let totalRows = await db.query(
       `SELECT COUNT(*) as total FROM videos ${whereSql}`,
       whereValues
     );
-    const total = Number(totalRows?.[0]?.total || 0);
+    let total = Number(totalRows?.[0]?.total || 0);
+
+    if (total === 0) {
+      if (process.env.DEBUG_VIDEO_FILTER === "1") {
+        try {
+          console.debug(
+            "getRandomVideos: user_blocks excluded all rows, attempting fallback without user_blocks"
+          );
+        } catch (e) {}
+      }
+      try {
+        const fallback = await buildVideoFilterConditions(requestingUserId, {
+          includeUserBlocks: false,
+        });
+        whereClauses.splice(
+          0,
+          whereClauses.length,
+          ...baseWhereClauses,
+          ...fallback.whereClauses
+        );
+        whereValues.splice(
+          0,
+          whereValues.length,
+          ...baseWhereValues,
+          ...fallback.whereValues
+        );
+        const fallbackWhereSql = whereClauses.length
+          ? `WHERE ${whereClauses.join(" AND ")}`
+          : "";
+        totalRows = await db.query(
+          `SELECT COUNT(*) as total FROM videos ${fallbackWhereSql}`,
+          whereValues
+        );
+        total = Number(totalRows?.[0]?.total || 0);
+        if (process.env.DEBUG_VIDEO_FILTER === "1") {
+          try {
+            console.debug(
+              "getRandomVideos: fallback total",
+              total,
+              "whereSql",
+              fallbackWhereSql,
+              "params",
+              whereValues
+            );
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.error(
+          "getRandomVideos: fallback error:",
+          e && e.message ? e.message : e
+        );
+      }
+    }
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
     if (safePage > totalPages) safePage = totalPages;
     offset = (safePage - 1) * safeLimit;
@@ -1061,11 +1117,15 @@ export const getSavedVideosForUser = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const offset = (safePage - 1) * safeLimit;
 
-  // Build filter conditions for blocked videos and creators
-  const { whereClauses: filterClauses, whereValues: filterValues } =
-    await buildVideoFilterConditions(parsedUserId, {
-      includeUserBlocks: false,
-    });
+  // Save base clauses for potential fallback
+  const baseWhereClauses = [];
+  const baseWhereValues = [];
+
+  // Build filter conditions for blocked videos and creators (include user_blocks by default for saved list)
+  let { whereClauses: filterClauses, whereValues: filterValues } =
+    await buildVideoFilterConditions(parsedUserId, { includeUserBlocks: true });
+  baseWhereClauses.push(...filterClauses);
+  baseWhereValues.push(...filterValues);
 
   // Build additional WHERE clause for filtering
   let additionalWhereClause = "";
@@ -1090,6 +1150,61 @@ export const getSavedVideosForUser = async ({
     [parsedUserId, ...additionalWhereValues]
   );
   const total = Number(totalRows?.[0]?.total || 0);
+
+  // Safety fallback: if user_blocks excluded everything, retry without user_blocks
+  if (total === 0) {
+    if (process.env.DEBUG_VIDEO_FILTER === "1") {
+      try {
+        console.debug(
+          "getSavedVideosForUser: user_blocks excluded all rows, attempting fallback without user_blocks"
+        );
+      } catch (e) {}
+    }
+    try {
+      const fallback = await buildVideoFilterConditions(parsedUserId, {
+        includeUserBlocks: false,
+      });
+      const joinFilterClauses = fallback.whereClauses.map((clause) => {
+        return clause
+          .replace(/\bid\b(?!\s*NOT)/g, "v.id")
+          .replace(/\buser_id\b/g, "v.user_id");
+      });
+      const fallbackAdditionalWhereClause = joinFilterClauses.length
+        ? ` AND ${joinFilterClauses.join(" AND ")}`
+        : "";
+      const fallbackAdditionalWhereValues = [...fallback.whereValues];
+
+      const fallbackTotalRows = await db.query(
+        `SELECT COUNT(*) as total 
+         FROM saved_videos sv
+         LEFT JOIN videos v ON sv.video_id = v.id
+         WHERE sv.user_id = ?${fallbackAdditionalWhereClause}`,
+        [parsedUserId, ...fallbackAdditionalWhereValues]
+      );
+      const fallbackTotal = Number(fallbackTotalRows?.[0]?.total || 0);
+      if (process.env.DEBUG_VIDEO_FILTER === "1") {
+        try {
+          console.debug("getSavedVideosForUser: fallback total", fallbackTotal);
+        } catch (e) {}
+      }
+      // If fallback found rows, use fallback clauses for the rest of the query
+      if (fallbackTotal > 0) {
+        filterClauses = fallback.whereClauses;
+        filterValues = fallback.whereValues;
+        additionalWhereClause = fallbackAdditionalWhereClause;
+        additionalWhereValues.splice(
+          0,
+          additionalWhereValues.length,
+          ...fallbackAdditionalWhereValues
+        );
+      }
+    } catch (e) {
+      console.error(
+        "getSavedVideosForUser: fallback error:",
+        e && e.message ? e.message : e
+      );
+    }
+  }
 
   // Join with videos to return video details alongside save record
   const rows = await db.query(
