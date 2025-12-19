@@ -1,5 +1,5 @@
-import { getBlockedVideos } from "../video-block/video-block.service.js";
 import { getBlockedCreators } from "../block-creator/block-creator.service.js";
+import getMyBlockedVideosHelper from "../video-block/video-block.helper.js";
 
 /**
  * Build WHERE clause conditions and parameters to filter out:
@@ -20,15 +20,9 @@ export const buildVideoFilterConditions = async (userId) => {
   }
 
   try {
-    // Get all videos blocked by this user (active blocks only)
-    // increase limit slightly to cover larger lists; services already cap defensively
-    const blockedVideos = await getBlockedVideos({
-      blockedBy: userId,
-      active: 1,
-      // use service's allowed limit to avoid requesting more than intended
-      limit: 500,
-      offset: 0,
-    });
+    // Get all videos blocked by this user (active blocks only) via helper
+    // The helper returns a normalized array of video ids and fails safely to []
+    const blockedVideoIdsFromHelper = await getMyBlockedVideosHelper(userId);
 
     // Get all creators blocked by this user (active blocks only)
     const blockedCreators = await getBlockedCreators({
@@ -49,11 +43,11 @@ export const buildVideoFilterConditions = async (userId) => {
       return i;
     };
 
-    // Extract video IDs that are blocked (coerce, filter, dedupe)
+    // Use helper output (already normalized ints). Validate and dedupe defensively.
     const blockedVideoIds = Array.from(
       new Set(
-        (blockedVideos || [])
-          .map((block) => normalizeId(block.video_id))
+        (blockedVideoIdsFromHelper || [])
+          .map((v) => normalizeId(v))
           .filter((id) => id !== null)
       )
     );

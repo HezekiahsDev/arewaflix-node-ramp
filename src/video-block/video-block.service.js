@@ -126,62 +126,7 @@ export const unblockVideo = async (blockId, liftedBy) => {
   }
 };
 
-export const getBlockedVideos = async ({
-  blockType = null,
-  active = 1,
-  limit = 100,
-  offset = 0,
-  blockedBy = null,
-} = {}) => {
-  // Validate pagination parameters
-  if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 500) {
-    throw new ApiError("'limit' must be between 1 and 500.", 400);
-  }
-
-  if (!Number.isSafeInteger(offset) || offset < 0) {
-    throw new ApiError("'offset' must be a non-negative integer.", 400);
-  }
-
-  let query = `SELECT vb.id, vb.video_id, v.title, v.thumbnail, 
-               vb.block_type, vb.reason, vb.blocked_by, vb.start_at, vb.end_at, vb.active, 
-               vb.lifted_by, vb.lifted_at, vb.created_at, vb.updated_at
-               FROM video_blocks vb
-               JOIN videos v ON vb.video_id = v.id
-               WHERE 1=1`;
-  const params = [];
-
-  if (active !== null && active !== undefined) {
-    query += " AND vb.active = ?";
-    params.push(active ? 1 : 0);
-  }
-
-  if (blockType) {
-    query += " AND vb.block_type = ?";
-    params.push(blockType);
-  }
-
-  if (blockedBy !== null && blockedBy !== undefined) {
-    if (!Number.isSafeInteger(blockedBy) || blockedBy <= 0) {
-      throw new ApiError("'blockedBy' must be a positive integer.", 400);
-    }
-    query += " AND vb.blocked_by = ?";
-    params.push(blockedBy);
-  }
-
-  query += " ORDER BY vb.created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
-
-  try {
-    const [rows] = await db.pool.execute(query, params);
-    return rows || [];
-  } catch (err) {
-    console.error("Database error while fetching blocked videos:", err.message);
-    throw new ApiError("Failed to fetch blocked videos.", 500);
-  }
-};
-
 export default {
   blockVideo,
   unblockVideo,
-  getBlockedVideos,
 };

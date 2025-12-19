@@ -1,4 +1,5 @@
 import videoBlockService from "./video-block.service.js";
+import getMyBlockedVideosHelper from "./video-block.helper.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Valid block types
@@ -49,12 +50,10 @@ export const blockVideo = async (req, res, next) => {
     // Sanitize and validate reason (required, non-empty)
     let reason = String(body.reason || "").trim();
     if (!reason) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Reason is required and cannot be empty.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Reason is required and cannot be empty.",
+      });
     }
     if (reason.length > MAX_REASON_LENGTH) {
       return res
@@ -153,11 +152,13 @@ export const getBlockedVideos = async (req, res, next) => {
       }
     }
 
-    // Return blocked videos scoped to the authenticated user
-    const blockedVideos = await videoBlockService.getBlockedVideos({
+    // Return blocked videos scoped to the authenticated user — use helper (DB-backed)
+    const blockedVideos = await getMyBlockedVideosHelper(req.user?.id, {
+      fullRows: true,
       blockType,
       active,
-      blockedBy: req.user?.id,
+      limit: 500,
+      offset: 0,
     });
     return res.json({ success: true, data: blockedVideos });
   } catch (err) {

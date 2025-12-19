@@ -16,7 +16,6 @@ import {
   createBlockedVideo,
 } from "./videos.service.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
-import { getMyBlockedVideosHelper } from "../video-block/video-block.helper.js";
 
 // Note: getAllVideos now returns all columns from the `videos` table.
 // Response shape: { data: Array<VideoRow>, pagination: { page, limit, total, totalPages } }
@@ -261,25 +260,8 @@ export const getAllVideos = async (req, res, next) => {
       requestingUserId,
     });
 
-    // If the request is authenticated, exclude videos the user has blocked
-    if (requestingUserId) {
-      try {
-        const blockedIds = await getMyBlockedVideosHelper(requestingUserId);
-        if (Array.isArray(blockedIds) && blockedIds.length > 0) {
-          const blockedSet = new Set(blockedIds.map((id) => Number(id)));
-          result.data = Array.isArray(result.data)
-            ? result.data.filter((v) => !blockedSet.has(Number(v.id)))
-            : result.data;
-        }
-      } catch (err) {
-        // Fail-safe: if the helper fails, log and continue returning unfiltered results
-        console.error(
-          "Error filtering blocked videos for user",
-          requestingUserId,
-          err && err.message ? err.message : err
-        );
-      }
-    }
+    // Video filtering (blocked videos / creators / users) is applied in the
+    // service layer via `buildVideoFilterConditions` for authenticated users.
     res.json(result);
   } catch (err) {
     next(err);
