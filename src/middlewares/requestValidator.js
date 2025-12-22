@@ -4,13 +4,13 @@ const emailRegex =
   /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
 export const validateRegistration = async (req, res, next) => {
-  const { username, email, password, gender } = req.body;
+  const { username, email, password } = req.body;
 
-  // 1. Presence checks
-  if (!username || !email || !password || !gender) {
+  // 1. Presence checks (gender is optional)
+  if (!username || !email || !password) {
     return res.status(400).json({
       success: false,
-      message: "Username, email, password, and gender are required.",
+      message: "Username, email and password are required.",
     });
   }
 
